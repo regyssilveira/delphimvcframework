@@ -41,15 +41,15 @@ type
   TMVCJWTDefaults = class sealed
   public const
     /// <summary>
-    ///   Default authorization header name
+    /// Default authorization header name
     /// </summary>
     AUTHORIZATION_HEADER = 'Authentication';
     /// <summary>
-    ///   Default username header name
+    /// Default username header name
     /// </summary>
     USERNAME_HEADER = 'jwtusername';
     /// <summary>
-    ///   Default password header name
+    /// Default password header name
     /// </summary>
     PASSWORD_HEADER = 'jwtpassword';
   end;
@@ -73,8 +73,8 @@ type
     procedure InternalRender(AJSONOb: TJDOJsonObject; AContentType: string; AContentEncoding: string;
       AContext: TWebContext; AInstanceOwner: Boolean = True);
 
-    procedure RenderError(const AErrorCode: UInt16; const AErrorMessage: string; const AContext: TWebContext;
-      const AErrorClassName: string = '');
+    procedure RenderError(const AHTTPStatusCode: UInt16; const AErrorMessage: string;
+  const AContext: TWebContext; const AErrorClassName: string = ''; const AErrorNumber: Integer = 0);
 
     procedure OnBeforeRouting(AContext: TWebContext; var AHandled: Boolean);
 
@@ -88,7 +88,8 @@ type
       AConfigClaims: TJWTClaimsSetup;
       ASecret: string = 'D3lph1MVCFram3w0rk';
       ALoginURLSegment: string = '/login';
-      AClaimsToCheck: TJWTCheckableClaims = [TJWTCheckableClaim.ExpirationTime, TJWTCheckableClaim.NotBefore, TJWTCheckableClaim.IssuedAt];
+      AClaimsToCheck: TJWTCheckableClaims = [TJWTCheckableClaim.ExpirationTime, TJWTCheckableClaim.NotBefore,
+      TJWTCheckableClaim.IssuedAt];
       ALeewaySeconds: Cardinal = 300;
       AAuthorizationHeaderName: string = TMVCJWTDefaults.AUTHORIZATION_HEADER;
       AUserNameHeaderName: string = TMVCJWTDefaults.USERNAME_HEADER;
@@ -100,7 +101,8 @@ implementation
 uses
   System.NetEncoding,
   System.DateUtils,
-  System.Math, MVCFramework.Logger;
+  System.Math,
+  MVCFramework.Logger;
 
 { TMVCJWTAuthenticationMiddleware }
 
@@ -108,7 +110,8 @@ constructor TMVCJWTAuthenticationMiddleware.Create(AAuthenticationHandler: IMVCA
   AConfigClaims: TJWTClaimsSetup;
   ASecret: string = 'D3lph1MVCFram3w0rk';
   ALoginURLSegment: string = '/login';
-  AClaimsToCheck: TJWTCheckableClaims = [TJWTCheckableClaim.ExpirationTime, TJWTCheckableClaim.NotBefore, TJWTCheckableClaim.IssuedAt];
+  AClaimsToCheck: TJWTCheckableClaims = [TJWTCheckableClaim.ExpirationTime, TJWTCheckableClaim.NotBefore,
+  TJWTCheckableClaim.IssuedAt];
   ALeewaySeconds: Cardinal = 300;
   AAuthorizationHeaderName: string = TMVCJWTDefaults.AUTHORIZATION_HEADER;
   AUserNameHeaderName: string = TMVCJWTDefaults.USERNAME_HEADER;
@@ -352,11 +355,15 @@ begin
             AHandled := True;
           end;
         except
-          on E: Exception do
+          on Err: EMVCException do
           begin
-            RenderError(HTTP_STATUS.Forbidden, E.Message, AContext);
+            RenderError(Err.HttpErrorCode, Err.Message, AContext, Err.ClassName, Err.ApplicationErrorCode);
             AHandled := True;
-            Exit;
+          end;
+          on e: Exception do
+          begin
+            RenderError(HTTP_STATUS.Forbidden, e.Message, AContext);
+            AHandled := True;
           end;
         end;
       finally
@@ -368,30 +375,40 @@ begin
   end;
 end;
 
-procedure TMVCJWTAuthenticationMiddleware.RenderError(const AErrorCode: UInt16; const AErrorMessage: string;
-  const AContext: TWebContext; const AErrorClassName: string);
+procedure TMVCJWTAuthenticationMiddleware.RenderError(const AHTTPStatusCode: UInt16; const AErrorMessage: string;
+  const AContext: TWebContext; const AErrorClassName: string; const AErrorNumber: Integer);
 var
-  LJo: TJDOJsonObject;
-  LStatus: string;
+  lJObj: TJDOJsonObject;
+  lStatus: string;
 begin
-  AContext.Response.StatusCode := AErrorCode;
+  AContext.Response.StatusCode := AHTTPStatusCode;
   AContext.Response.ReasonString := AErrorMessage;
 
-  LStatus := 'error';
-  if (AErrorCode div 100) = 2 then
-    LStatus := 'ok';
+  lStatus := 'error';
+  if (AHTTPStatusCode div 100) = 2 then
+    lStatus := 'ok';
 
-  LJo := TJDOJsonObject.Create;
-  LJo.S['status'] := LStatus;
+  lJObj := TJDOJsonObject.Create;
+  lJObj.S['status'] := lStatus;
+  lJObj.I['statuscode'] := AHTTPStatusCode;
+  lJObj.S['message'] := AErrorMessage;
 
   if AErrorClassName = '' then
-    LJo.Values['classname'] := nil
+  begin
+    lJObj.Values['classname'] := nil
+  end
   else
-    LJo.S['classname'] := AErrorClassName;
+  begin
+    lJObj.S['classname'] := AErrorClassName;
+  end;
 
-  LJo.S['message'] := AErrorMessage;
 
-  InternalRender(LJo, TMVCConstants.DEFAULT_CONTENT_TYPE, TMVCConstants.DEFAULT_CONTENT_CHARSET, AContext);
+  if AErrorNumber <> 0 then
+  begin
+    lJObj.I['errornumber'] := AErrorNumber;
+  end;
+
+  InternalRender(lJObj, TMVCConstants.DEFAULT_CONTENT_TYPE, TMVCConstants.DEFAULT_CONTENT_CHARSET, AContext);
 end;
 
 end.

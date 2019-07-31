@@ -3,9 +3,18 @@ unit MainClientFormU;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
-  System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls;
+  Winapi.Windows,
+  Winapi.Messages,
+  System.SysUtils,
+  System.Variants,
+  System.Classes,
+  MVCFramework.Middleware.JWT,
+  Vcl.Graphics,
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.Dialogs,
+  Vcl.StdCtrls,
+  Vcl.ExtCtrls;
 
 type
   TForm5 = class(TForm)
@@ -17,8 +26,10 @@ type
     Splitter1: TSplitter;
     Memo3: TMemo;
     Splitter2: TSplitter;
+    btnLoginWithException: TButton;
     procedure btnGetClick(Sender: TObject);
     procedure btnLOGINClick(Sender: TObject);
+    procedure btnLoginWithExceptionClick(Sender: TObject);
   private
     FJWT: string;
     procedure SetJWT(const Value: string);
@@ -52,7 +63,9 @@ begin
     lClient.UseBasicAuthentication := False;
     lClient.ReadTimeOut(0);
     if not FJWT.IsEmpty then
-      lClient.RequestHeaders.Values['Authorization'] := 'bearer ' + FJWT;
+    begin
+      lClient.RequestHeaders.Values[TMVCJWTDefaults.AUTHORIZATION_HEADER] := 'Bearer ' + FJWT;
+    end;
     lQueryStringParams := TStringList.Create;
     try
       lQueryStringParams.Values['firstname'] := 'Daniele';
@@ -76,7 +89,7 @@ begin
 
     lClient.ReadTimeOut(0);
     if not FJWT.IsEmpty then
-      lClient.RequestHeaders.Values['Authorization'] := 'bearer ' + FJWT;
+      lClient.RequestHeaders.Values[TMVCJWTDefaults.AUTHORIZATION_HEADER] := 'Bearer ' + FJWT;
     lQueryStringParams := TStringList.Create;
     try
       lQueryStringParams.Values['firstname'] := 'Daniele';
@@ -103,13 +116,46 @@ begin
   lClient := TRESTClient.Create('localhost', 8080);
   try
     lClient.ReadTimeOut(0);
-    lClient
-      .Header('username', 'user1')
-      .Header('password', 'user1');
+    lClient.Authentication('user1', 'user1');
     lRest := lClient.doPOST('/login', []);
     if lRest.HasError then
     begin
-      ShowMessage(lRest.Error.ExceptionMessage);
+      ShowMessage(
+        'HTTP ERROR: ' + lRest.Error.HTTPError.ToString + sLineBreak +
+        'APPLICATION ERROR CODE: ' + lRest.Error.ErrorNumber.ToString + sLineBreak +
+        'EXCEPTION MESSAGE: ' + lRest.Error.ExceptionMessage);
+
+      Exit;
+    end;
+
+    lJSON := TSystemJSON.StringAsJSONObject(lRest.BodyAsString);
+    try
+      JWT := lJSON.GetValue('token').Value;
+    finally
+      lJSON.Free;
+    end;
+  finally
+    lClient.Free;
+  end;
+end;
+
+procedure TForm5.btnLoginWithExceptionClick(Sender: TObject);
+var
+  lClient: TRESTClient;
+  lRest: IRESTResponse;
+  lJSON: TJSONObject;
+begin
+  lClient := TRESTClient.Create('localhost', 8080);
+  try
+    lClient.ReadTimeOut(0);
+    lClient.Authentication('user_raise_exception', 'user_raise_exception');
+    lRest := lClient.doPOST('/login', []);
+    if lRest.HasError then
+    begin
+      ShowMessage(
+        'HTTP ERROR: ' + lRest.Error.HTTPError.ToString + sLineBreak +
+        'APPLICATION ERROR CODE: ' + lRest.Error.ErrorNumber.ToString + sLineBreak +
+        'EXCEPTION MESSAGE: ' + lRest.Error.ExceptionMessage);
       Exit;
     end;
 

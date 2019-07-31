@@ -36,10 +36,9 @@ uses
   System.SyncObjs,
   System.IOUtils,
   System.Generics.Collections,
-  // System.JSON,
   Data.DB,
   IdGlobal,
-  IdCoderMIME;
+  IdCoderMIME, IdContext;
 
 {$I dmvcframeworkbuildconsts.inc}
 
@@ -268,12 +267,47 @@ type
     Conflict = 409;
     Gone = 410;
     LengthRequired = 411;
+    /// <summary>
+    /// 412 Precondition Failed
+    /// Any request can contain a conditional header defined in HTTP (If-
+    /// Match, If-Modified-Since, etc.) or the "If" or "Overwrite"
+    /// conditional headers defined in this specification.  If the server
+    /// evaluates a conditional header, and if that condition fails to hold,
+    /// then this error code MUST be returned.  On the other hand, if the
+    /// client did not include a conditional header in the request, then the
+    /// server MUST NOT use this status code.
+    /// </summary>
     PreconditionFailed = 412;
     RequestEntityTooLarge = 413;
     RequestURITooLong = 414;
     UnsupportedMediaType = 415;
     RequestedRangeNotSatisfiable = 416;
     ExpectationFailed = 417;
+    /// <summary>
+    ///   The 422 (Unprocessable Entity) status code means the server
+    ///   understands the content type of the request entity (hence a
+    ///   415(Unsupported Media Type) status code is inappropriate), and the
+    ///   syntax of the request entity is correct (thus a 400 (Bad Request)
+    ///   status code is inappropriate) but was unable to process the contained
+    ///   instructions.  For example, this error condition may occur if an XML
+    ///   request body contains well-formed (i.e., syntactically correct), but
+    ///   semantically erroneous, XML instructions.
+    /// </summary>
+    UnprocessableEntity = 422;
+    /// <summary>
+    ///  The 423 (Locked) status code means the source or destination resource
+    ///  of a method is locked.  This response SHOULD contain an appropriate
+    ///  precondition or postcondition code, such as 'lock-token-submitted' or 'no-conflicting-lock
+    /// </summary>
+    Locked = 423;
+    /// <summary>
+    /// The 424 (Failed Dependency) status code means that the method could
+    /// not be performed on the resource because the requested action
+    /// depended on another action and that action failed.  For example, if a
+    /// command in a PROPPATCH method fails, then, at minimum, the rest of
+    /// the commands will also fail with 424 (Failed Dependency).
+    /// </summary>
+    FailedDependency = 424;
     // Server Error 5xx
     /// <summary>
     /// 500 Internal Server Error
@@ -296,6 +330,16 @@ type
     ServiceUnavailable = 503;
     GatewayTimeout = 504;
     HTTPVersionNotSupported = 505;
+
+    /// <summary>
+    /// The 507 (Insufficient Storage) status code means the method could not
+    /// be performed on the resource because the server is unable to store
+    /// the representation needed to successfully complete the request.
+    /// This condition is considered to be temporary.  If the request that
+    /// received this status code was the result of a user action, the
+    /// request MUST NOT be repeated until it is requested by a separate user action.
+    /// </summary>
+    InsufficientStorage = 507;
   end;
 
   EMVCException = class(Exception)
@@ -304,13 +348,15 @@ type
     FAppErrorCode: UInt16;
     FDetailedMessage: string;
   protected
-    { protected declarations }
+    procedure CheckHTTPErrorCode(const AHTTPErrorCode: UInt16);
   public
     constructor Create(const AMsg: string); overload; virtual;
     constructor Create(const AMsg: string; const ADetailedMessage: string;
-      const AAppErrorCode: UInt16;
-      const AHttpErrorCode: UInt16 = HTTP_STATUS.InternalServerError); overload; virtual;
-    constructor Create(const AHttpErrorCode: UInt16; const AMsg: string); overload; virtual;
+      const AAppErrorCode: UInt16 = 0;
+      const AHTTPErrorCode: UInt16 = HTTP_STATUS.InternalServerError); overload; virtual;
+    constructor Create(const AHTTPErrorCode: UInt16; const AMsg: string); overload; virtual;
+    constructor Create(const AHTTPErrorCode: UInt16; const AAppErrorCode: Integer; const AMsg: string);
+      overload; virtual;
     constructor CreateFmt(const AMsg: string; const AArgs: array of const); reintroduce;
 
     property HttpErrorCode: UInt16 read FHttpErrorCode;
@@ -355,7 +401,12 @@ type
   end;
 
   EMVCViewError = class(EMVCException)
-
+  private
+    { private declarations }
+  protected
+    { protected declarations }
+  public
+    { public declarations }
   end;
 
   TMVCRequestParamsTable = class(TDictionary<string, string>)
@@ -513,9 +564,9 @@ function B64Encode(const aValue: string): string; overload;
 function B64Encode(const aValue: TBytes): string; overload;
 function B64Decode(const aValue: string): string;
 
-function URLSafeB64encode(const Value: string; IncludePadding: Boolean): string; overload;
+function URLSafeB64encode(const Value: string; IncludePadding: Boolean; AByteEncoding: IIdTextEncoding = nil): string; overload;
 function URLSafeB64encode(const Value: TBytes; IncludePadding: Boolean): string; overload;
-function URLSafeB64Decode(const Value: string): string;
+function URLSafeB64Decode(const Value: string; AByteEncoding: IIdTextEncoding = nil): string;
 
 function ByteToHex(AInByte: Byte): string;
 function BytesToHex(ABytes: TBytes): string;
@@ -552,13 +603,22 @@ const
     ('224.0.0.0', '239.255.255.255'),
     ('240.0.0.0', '255.255.255.255'));
 
+
+type
+  TMVCParseAuthentication = class
+  public
+    class procedure OnParseAuthentication(AContext: TIdContext; const AAuthType, AAuthData: String; var VUsername,
+      VPassword: String; var VHandled: Boolean);
+  end;
+
 implementation
 
 uses
   IdCoder3to4,
   JsonDataObjects,
   System.NetEncoding,
-  MVCFramework.Serializer.JsonDataObjects, MVCFramework.Serializer.Commons;
+  MVCFramework.Serializer.JsonDataObjects,
+  MVCFramework.Serializer.Commons;
 
 var
   GlobalAppName, GlobalAppPath, GlobalAppExe: string;
@@ -697,22 +757,37 @@ begin
 end;
 
 constructor EMVCException.Create(const AMsg, ADetailedMessage: string;
-  const AAppErrorCode, AHttpErrorCode: UInt16);
+  const AAppErrorCode, AHTTPErrorCode: UInt16);
 begin
   Create(AMsg);
-  FHttpErrorCode := AHttpErrorCode;
+  CheckHTTPErrorCode(AHTTPErrorCode);
+  FHttpErrorCode := AHTTPErrorCode;
   FAppErrorCode := AAppErrorCode;
   FDetailedMessage := ADetailedMessage;
 end;
 
-constructor EMVCException.Create(const AHttpErrorCode: UInt16; const AMsg: string);
+constructor EMVCException.Create(const AHTTPErrorCode: UInt16; const AMsg: string);
 begin
-  if (AHttpErrorCode div 100 = 0) or (AHttpErrorCode div 100 > 5) then
-  begin
-    raise EMVCException.CreateFmt('Invalid HTTP_STATUS [%d]', [AHttpErrorCode]);
-  end;
+  CheckHTTPErrorCode(AHTTPErrorCode);
   Create(AMsg);
-  FHttpErrorCode := AHttpErrorCode;
+  FHttpErrorCode := AHTTPErrorCode;
+end;
+
+procedure EMVCException.CheckHTTPErrorCode(const AHTTPErrorCode: UInt16);
+begin
+  if (AHTTPErrorCode div 100 = 0) or (AHTTPErrorCode div 100 > 5) then
+  begin
+    raise EMVCException.CreateFmt('Invalid HTTP_STATUS [%d]', [AHTTPErrorCode]);
+  end;
+end;
+
+constructor EMVCException.Create(const AHTTPErrorCode: UInt16;
+  const AAppErrorCode: Integer; const AMsg: string);
+begin
+  CheckHTTPErrorCode(AHTTPErrorCode);
+  Create(AMsg);
+  FHttpErrorCode := AHTTPErrorCode;
+  FAppErrorCode := AAppErrorCode;
 end;
 
 constructor EMVCException.CreateFmt(const AMsg: string; const AArgs: array of const);
@@ -979,12 +1054,12 @@ begin
   FFillChar := '='; { Do not Localize }
 end;
 
-function URLSafeB64encode(const Value: string; IncludePadding: Boolean): string; overload;
+function URLSafeB64encode(const Value: string; IncludePadding: Boolean; AByteEncoding: IIdTextEncoding = nil): string; overload;
 begin
   if IncludePadding then
-    Result := TURLSafeEncode.EncodeString(Value)
+    Result := TURLSafeEncode.EncodeString(Value, AByteEncoding)
   else
-    Result := TURLSafeEncode.EncodeString(Value).Replace('=', '', [rfReplaceAll]);
+    Result := TURLSafeEncode.EncodeString(Value, AByteEncoding).Replace('=', '', [rfReplaceAll]);
 end;
 
 /// <summary>
@@ -1012,18 +1087,18 @@ begin
     Result := RTrim(TURLSafeEncode.EncodeBytes(TIdBytes(Value)), '=');
 end;
 
-function URLSafeB64Decode(const Value: string): string;
+function URLSafeB64Decode(const Value: string; AByteEncoding: IIdTextEncoding = nil): string;
 begin
   // SGR 2017-07-03 : b64url might not include padding. Need to add it before decoding
   case Length(Value) mod 4 of
     0:
       begin
-        Result := TURLSafeDecode.DecodeString(Value);
+        Result := TURLSafeDecode.DecodeString(Value, AByteEncoding);
       end;
     2:
-      Result := TURLSafeDecode.DecodeString(Value + '==');
+      Result := TURLSafeDecode.DecodeString(Value + '==', AByteEncoding);
     3:
-      Result := TURLSafeDecode.DecodeString(Value + '=');
+      Result := TURLSafeDecode.DecodeString(Value + '=', AByteEncoding);
   else
     raise EExternalException.Create('Illegal base64url length');
   end;
@@ -1178,7 +1253,6 @@ begin
   end;
 end;
 
-
 function FileToBase64String(const FileName: String): String;
 var
   lTemplateFileB64: TStringStream;
@@ -1197,6 +1271,13 @@ begin
     lTemplateFileB64.Free;
   end;
 end;
+
+class procedure TMVCParseAuthentication.OnParseAuthentication(AContext: TIdContext; const AAuthType, AAuthData: String; var VUsername,
+      VPassword: String; var VHandled: Boolean);
+begin
+  VHandled := SameText(LowerCase(AAuthType), 'bearer');
+end;
+
 
 initialization
 

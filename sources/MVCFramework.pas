@@ -6,7 +6,9 @@
 //
 // https://github.com/danieleteti/delphimvcframework
 //
-// Collaborators on this file: Ezequiel Juliano Müller (ezequieljuliano@gmail.com)
+// Collaborators on this file:
+//    Ezequiel Juliano Müller (ezequieljuliano@gmail.com)
+//    João Antônio Duarte (https://github.com/joaoduarte19)
 //
 // ***************************************************************************
 //
@@ -599,6 +601,7 @@ type
     FContext: TWebContext;
     FContentCharset: string;
     FResponseStream: TStringBuilder;
+    function ToMVCList(const AObject: TObject; AOwnsObject: Boolean = False): IMVCList;
   public
     function GetContentType: string;
     function GetStatusCode: Integer;
@@ -647,6 +650,7 @@ type
       const ASerializationAction: TMVCSerializationAction = nil); overload;
     procedure Render(const AStatusCode: Integer; AObject: TObject; const AOwns: Boolean;
       const ASerializationAction: TMVCSerializationAction = nil); overload;
+    procedure Render(const AObject: IInterface; const ASerializationAction: TMVCSerializationAction = nil); overload;
     // PODOs Collection render
     procedure Render<T: class>(const ACollection: TObjectList<T>;
       const ASerializationAction: TMVCSerializationAction<T> = nil); overload;
@@ -3057,6 +3061,11 @@ begin
   GetContext.Response.StatusCode := AValue;
 end;
 
+function TMVCRenderer.ToMVCList(const AObject: TObject; AOwnsObject: Boolean): IMVCList;
+begin
+  Result :=  MVCFramework.DuckTyping.WrapAsList(AObject,AOwnsObject);
+end;
+
 procedure TMVCController.SetViewData(const aModelName: string; const Value: TObject);
 begin
   GetViewModel.Add(aModelName, Value);
@@ -3141,6 +3150,11 @@ begin
   end
   else
     raise EMVCException.Create('Can not render an empty dataset.');
+end;
+
+procedure TMVCRenderer.Render(const AObject: IInterface; const ASerializationAction: TMVCSerializationAction);
+begin
+  Render(TObject(AObject), False, ASerializationAction);
 end;
 
 procedure TMVCRenderer.Render(const AStatusCode: Integer; AObject: TObject;

@@ -6,7 +6,7 @@
 //
 // https://github.com/danieleteti/delphimvcframework
 //
-// Collaborators on this file: Ezequiel Juliano Müller (ezequieljuliano@gmail.com)
+// Collaborators on this file: Ezequiel Juliano MÃ¼ller (ezequieljuliano@gmail.com)
 //
 // ***************************************************************************
 //
@@ -56,6 +56,8 @@ type
   TMVCDataType = (dtObject, dtArray);
 
   TMVCDatasetSerializationType = (dstSingleRecord, dstAllRecords);
+
+  TMVCEnumSerializationType = (estEnumName, estEnumOrd);
 
   TMVCIgnoredList = array of string;
 
@@ -165,6 +167,16 @@ type
     constructor Create(AFieldName: string; AIsPK: boolean = false);
     property FieldName: string read FFieldName write SetFieldName;
     property IsPK: boolean read FIsPK write SetIsPK;
+  end;
+
+  MVCEnumSerializationTypeAttribute = class(TCustomAttribute)
+  private
+    FEnumPrefix: string;
+    FEnumSerializationType: TMVCEnumSerializationType;
+  public
+    constructor Create(const AEnumSerializationType: TMVCEnumSerializationType; const AEnumPrefix: string = '');
+    property EnumSerializationType: TMVCEnumSerializationType read FEnumSerializationType;
+    property EnumPrefix: string read FEnumPrefix;
   end;
 
   TMVCSerializerHelper = record
@@ -554,6 +566,10 @@ begin
           begin
             Exit(LowerCase(AProperty.Name));
           end;
+        ncCamelCase:
+          begin
+            Exit(LowerCase(AProperty.Name.Chars[0]) + AProperty.Name.Substring(1));
+          end;
       end;
     end;
 end;
@@ -686,9 +702,14 @@ begin
   FIsPK := Value;
 end;
 
-{ TDataSetHelper }
+{ MVCEnumSerializationTypeAttribute }
 
-{ TDataSetHelper }
+constructor MVCEnumSerializationTypeAttribute.Create(const AEnumSerializationType: TMVCEnumSerializationType;
+  const AEnumPrefix: string);
+begin
+  FEnumSerializationType := AEnumSerializationType;
+  FEnumPrefix := AEnumPrefix;
+end;
 
 { TMVCTask }
 
@@ -743,7 +764,7 @@ end;
 
 function TDataObjectHolder.SerializationType: TMVCDatasetSerializationType;
 begin
-
+  Result := FDataSetSerializationType;
 end;
 
 end.

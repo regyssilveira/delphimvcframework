@@ -45,8 +45,6 @@ object MainForm: TMainForm
       Align = alRight
       Caption = 'Select a FireDAC Connection Definitions'
       Layout = tlCenter
-      ExplicitLeft = 524
-      ExplicitTop = 1
       ExplicitHeight = 13
     end
     object cboConnectionDefs: TComboBox
@@ -62,8 +60,6 @@ object MainForm: TMainForm
       Align = alRight
       TabOrder = 0
       OnChange = cboConnectionDefsChange
-      ExplicitLeft = 721
-      ExplicitTop = 14
     end
   end
   object Panel2: TPanel
@@ -80,7 +76,6 @@ object MainForm: TMainForm
     Font.Style = []
     ParentFont = False
     TabOrder = 1
-    ExplicitTop = 41
     object Label2: TLabel
       AlignWithMargins = True
       Left = 4
@@ -108,7 +103,6 @@ object MainForm: TMainForm
       TabOrder = 0
       WordWrap = False
       OnChange = mmConnectionParamsChange
-      ExplicitHeight = 101
     end
     object Panel6: TPanel
       Left = 496
@@ -120,7 +114,6 @@ object MainForm: TMainForm
       Caption = 'Panel6'
       ShowCaption = False
       TabOrder = 1
-      ExplicitHeight = 107
       object GroupBox1: TGroupBox
         AlignWithMargins = True
         Left = 3
@@ -134,10 +127,6 @@ object MainForm: TMainForm
         Padding.Right = 5
         Padding.Bottom = 5
         TabOrder = 0
-        ExplicitLeft = 88
-        ExplicitTop = 0
-        ExplicitWidth = 185
-        ExplicitHeight = 105
         object lstSchema: TListBox
           AlignWithMargins = True
           Left = 215
@@ -148,10 +137,6 @@ object MainForm: TMainForm
           ItemHeight = 13
           TabOrder = 0
           OnDblClick = lstSchemaDblClick
-          ExplicitLeft = 120
-          ExplicitTop = 0
-          ExplicitWidth = 121
-          ExplicitHeight = 97
         end
         object lstCatalog: TListBox
           AlignWithMargins = True
@@ -174,9 +159,6 @@ object MainForm: TMainForm
           Caption = 'Refresh'
           TabOrder = 2
           OnClick = btnRefreshCatalogClick
-          ExplicitLeft = 8
-          ExplicitTop = 19
-          ExplicitHeight = 114
         end
       end
     end
@@ -189,8 +171,6 @@ object MainForm: TMainForm
     Align = alClient
     Caption = 'Panel3'
     TabOrder = 2
-    ExplicitTop = 172
-    ExplicitHeight = 458
     object Panel4: TPanel
       Left = 1
       Top = 1
@@ -235,6 +215,18 @@ object MainForm: TMainForm
         TabOrder = 1
         OnClick = btnGetTablesClick
       end
+      object chGenerateMapping: TCheckBox
+        Left = 255
+        Top = 12
+        Width = 514
+        Height = 17
+        Caption = 
+          'Register entities in ActiveRecordMappingRegistry (needed by TMVC' +
+          'ActiveRecordController)'
+        Checked = True
+        State = cbChecked
+        TabOrder = 2
+      end
     end
     object PageControl1: TPageControl
       AlignWithMargins = True
@@ -245,10 +237,8 @@ object MainForm: TMainForm
       ActivePage = TabSheet1
       Align = alClient
       TabOrder = 1
-      ExplicitHeight = 409
       object TabSheet1: TTabSheet
         Caption = 'Tables'
-        ExplicitHeight = 381
         object DBGrid1: TDBGrid
           Left = 0
           Top = 0
@@ -267,7 +257,6 @@ object MainForm: TMainForm
       object TabSheet2: TTabSheet
         Caption = 'Generated Code'
         ImageIndex = 1
-        ExplicitHeight = 381
         object mmOutput: TMemo
           AlignWithMargins = True
           Left = 3
@@ -288,10 +277,6 @@ object MainForm: TMainForm
           ScrollBars = ssBoth
           TabOrder = 0
           WordWrap = False
-          ExplicitLeft = 0
-          ExplicitTop = 41
-          ExplicitWidth = 847
-          ExplicitHeight = 340
         end
         object Panel5: TPanel
           Left = 0
@@ -336,8 +321,8 @@ object MainForm: TMainForm
     UpdateOptions.EnableDelete = False
     UpdateOptions.EnableInsert = False
     UpdateOptions.EnableUpdate = False
-    Left = 328
-    Top = 200
+    Left = 304
+    Top = 152
   end
   object FDPhysFBDriverLink1: TFDPhysFBDriverLink
     Left = 616

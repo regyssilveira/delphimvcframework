@@ -40,7 +40,8 @@ uses
   Swag.Doc.Path,
   System.Json,
   Json.Schema.Field,
-  Json.Schema.Field.Objects, Swag.Doc.Definition;
+  Json.Schema.Field.Objects,
+  Swag.Doc.Definition;
 
 type
   TMVCSwagParamLocation = (plNotDefined, plQuery, plHeader, plPath, plFormData, plBody);
@@ -173,6 +174,11 @@ type
   end;
 
   /// <summary>
+  /// Use this attribute in the class or method to ignore the path in creating swagger documentation.
+  /// </summary>
+  MVCSwagIgnorePathAttribute = class(TCustomAttribute);
+
+  /// <summary>
   /// SwaggerDoc Methods
   /// </summary>
   TMVCSwagger = class sealed
@@ -199,7 +205,7 @@ type
     class procedure FillOperationSummary(const ASwagPathOperation: TSwagPathOperation; const AMethod: TRttiMethod);
     class function MethodRequiresAuthentication(const AMethod: TRttiMethod; const AType: TRttiType;
       out AAuthenticationTypeName: string): Boolean;
-    class function GetJWTAuthenticationPath(const AJWTUrlSegment: string): TSwagPath;
+    class function GetJWTAuthenticationPath(const AJWTUrlSegment: string; AUserNameHeaderName, APasswordHeaderName: string): TSwagPath;
   end;
 
 const
@@ -372,8 +378,6 @@ var
   lJsonSchema: TJsonField;
   lJsonRoot: TJsonFieldObject;
 begin
-  var
-  lClassName := AClass.ClassName;
   if AIsArray then
   begin
     lJsonSchema := TJsonFieldArray.Create
@@ -556,10 +560,11 @@ begin
   end;
 end;
 
-class function TMVCSwagger.GetJWTAuthenticationPath(const AJWTUrlSegment: string): TSwagPath;
+class function TMVCSwagger.GetJWTAuthenticationPath(const AJWTUrlSegment: string; AUserNameHeaderName, APasswordHeaderName: string): TSwagPath;
 var
   lSwagPathOp: TSwagPathOperation;
   lSwagResponse: TSwagResponse;
+  lSwagParam: TSwagRequestParameter;
 begin
   lSwagPathOp := TSwagPathOperation.Create;
   lSwagPathOp.Tags.Add('JWT Authentication');
@@ -567,6 +572,19 @@ begin
   lSwagPathOp.Security.Add(SECURITY_BASIC_NAME);
   lSwagPathOp.Description := 'Create JSON Web Token';
   lSwagPathOp.Produces.Add(TMVCMediaType.APPLICATION_JSON);
+  lSwagParam := TSwagRequestParameter.Create;
+  lSwagParam.Name := AUserNameHeaderName;
+  lSwagParam.TypeParameter := stpString;
+  lSwagParam.Required := true;
+  lSwagParam.InLocation := rpiHeader;
+  lSwagPathOp.Parameters.Add(lSwagParam);
+
+  lSwagParam := TSwagRequestParameter.Create;
+  lSwagParam.Name := APasswordHeaderName;
+  lSwagParam.TypeParameter := stpString;
+  lSwagParam.Required := true;
+  lSwagParam.InLocation := rpiHeader;
+  lSwagPathOp.Parameters.Add(lSwagParam);
 
   lSwagResponse := TSwagResponse.Create;
   lSwagResponse.StatusCode := HTTP_STATUS.Unauthorized.ToString;

@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2019 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2020 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -1447,7 +1447,9 @@ begin
     end
     else
     begin
-      raise EMVCJSONRPCException.Create('Response message must have ''result'' or ''error''');
+      raise EMVCJSONRPCException.Create('Response message must have ''result'' or ''error''.' + sLineBreak +
+        'Raw message is: ' + sLineBreak +
+        JSON.ToJSON());
     end;
   end;
 end;

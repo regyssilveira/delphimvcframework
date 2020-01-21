@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2019 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2020 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -72,6 +72,7 @@ type
       const UseArtificialLimit: Boolean = True): string; override;
     function CreateSelectCount(
       const TableName: String): String; override;
+    function HasSequences: Boolean; override;
   end;
 
 implementation
@@ -168,6 +169,11 @@ end;
 function TMVCSQLGeneratorSQLite.GetCompilerClass: TRQLCompilerClass;
 begin
   Result := TRQLSQLiteCompiler;
+end;
+
+function TMVCSQLGeneratorSQLite.HasSequences: Boolean;
+begin
+  Result := False;
 end;
 
 function TMVCSQLGeneratorSQLite.CreateDeleteAllSQL(

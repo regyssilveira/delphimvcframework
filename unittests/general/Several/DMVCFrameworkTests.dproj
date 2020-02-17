@@ -164,7 +164,6 @@
         </DelphiCompile>
         <DCCReference Include="FrameworkTestsU.pas"/>
         <DCCReference Include="LiveServerTestU.pas"/>
-        <DCCReference Include="MessagingExtensionsTestU.pas"/>
         <DCCReference Include="BOs.pas"/>
         <DCCReference Include="..\TestServer\TestServerControllerU.pas"/>
         <DCCReference Include="RESTAdapterTestsU.pas"/>
@@ -192,7 +191,6 @@
         <DCCReference Include="..\..\common\MVCFramework.Tests.Serializer.Entities.pas"/>
         <DCCReference Include="..\..\common\MVCFramework.Tests.Serializer.EntitiesModule.pas">
             <Form>EntitiesModule</Form>
-            <FormType>dfm</FormType>
             <DesignClass>TDataModule</DesignClass>
         </DCCReference>
         <DCCReference Include="..\..\common\MVCFramework.Tests.Serializer.Intf.pas"/>

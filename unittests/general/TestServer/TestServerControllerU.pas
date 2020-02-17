@@ -196,6 +196,19 @@ type
     [MVCHTTPMethod([httpGET])]
     procedure TestGetImagePng;
 
+    // Nullables Tests
+    [MVCHTTPMethod([httpPOST])]
+    [MVCPath('/nullables/pingpong')]
+    procedure TestDeserializeAndSerializeNullables;
+
+    [MVCHTTPMethod([httpGET])]
+    [MVCPath('/nullables/getsingle')]
+    procedure TestSerializeNullables;
+
+    [MVCHTTPMethod([httpGET])]
+    [MVCPath('/nullables/getsinglewithnulls')]
+    procedure TestSerializeNullablesWithNulls;
+
     // Response Objects Tests
     [MVCHTTPMethod([httpPOST])]
     [MVCPath('/responses/created')]
@@ -208,7 +221,6 @@ type
     [MVCHTTPMethod([httpGET])]
     [MVCPath('/responses/nocontent')]
     procedure TestResponseNoContent;
-
   end;
 
   [MVCPath('/private')]
@@ -399,9 +411,19 @@ begin
   lCustomer := Context.Request.BodyAs<TCustomer>();
   // lCustomer.Logo.SaveToFile('pippo_server_before.bmp');
   lCustomer.Name := lCustomer.Name + ' changed';
+{$IFNDEF LINUX}
   lCustomer.Logo.Canvas.TextOut(10, 10, 'Changed');
+{$ENDIF}
   // lCustomer.Logo.SaveToFile('pippo_server_after.bmp');
   Render(lCustomer, True);
+end;
+
+procedure TTestServerController.TestDeserializeAndSerializeNullables;
+var
+  lNullablesTest: TNullablesTest;
+begin
+  lNullablesTest := Context.Request.BodyAs<TNullablesTest>;
+  Render(lNullablesTest);
 end;
 
 procedure TTestServerController.TestCharset;
@@ -568,17 +590,34 @@ end;
 
 procedure TTestServerController.TestResponseAccepted;
 begin
-  ResponseAccepted('http://pippo.it/1234','1234','thisisthereason');
+  ResponseAccepted('http://pippo.it/1234', '1234', 'thisisthereason');
 end;
 
 procedure TTestServerController.TestResponseCreated;
 begin
-  ResponseCreated('thisisthelocation','thisisthereason');
+  ResponseCreated('thisisthelocation', 'thisisthereason');
 end;
 
 procedure TTestServerController.TestResponseNoContent;
 begin
   ResponseNoContent('thisisthereason');
+end;
+
+procedure TTestServerController.TestSerializeNullables;
+var
+  lObj: TNullablesTest;
+begin
+  lObj := TNullablesTest.Create();
+  lObj.LoadSomeData;
+  Render(lObj);
+end;
+
+procedure TTestServerController.TestSerializeNullablesWithNulls;
+var
+  lObj: TNullablesTest;
+begin
+  lObj := TNullablesTest.Create();
+  Render(lObj);
 end;
 
 procedure TTestServerController.TestStringDictionary;

@@ -1506,7 +1506,11 @@ destructor TMVCWebResponse.Destroy;
 begin
   if FFlushOnDestroy then
   begin
-    Flush;
+    try
+      Flush;
+    except
+      //do nothing
+    end;
   end;
   inherited Destroy;
 end;
@@ -1744,11 +1748,23 @@ end;
 
 destructor TWebContext.Destroy;
 begin
-  FResponse.Free;
-  FRequest.Free;
-  FData.Free;
-  if Assigned(FLoggedUser) then
-    FLoggedUser.Free;
+  try
+    FResponse.Free;
+  except
+  end;
+  try
+    FRequest.Free;
+  except
+  end;
+  try
+    FData.Free;
+  except
+  end;
+  try
+    if Assigned(FLoggedUser) then
+      FLoggedUser.Free;
+  except
+  end;
   inherited Destroy;
 end;
 
@@ -2093,21 +2109,24 @@ begin
                   LActionFormalParams := LRouter.MethodToCall.GetParameters;
                   if (Length(LActionFormalParams) = 0) then
                     SetLength(LActualParams, 0)
-                  else
-                    if (Length(LActionFormalParams) = 1) and
+                  else if (Length(LActionFormalParams) = 1) and
                     (SameText(LActionFormalParams[0].ParamType.QualifiedName, 'MVCFramework.TWebContext')) then
                   begin
                     SetLength(LActualParams, 1);
                     LActualParams[0] := LContext;
                   end
                   else
+                  begin
                     try
                       FillActualParamsForAction(LContext, LActionFormalParams, LRouter.MethodToCall.Name,
                         LActualParams);
-                    Except
-                      on e:Exception do
-                        SendRawHTTPStatus(Lcontext, HTTP_STATUS.BadRequest, e.Message, e.ClassName);
+                    except
+                      on E: Exception do
+                      begin
+                        SendRawHTTPStatus(LContext, HTTP_STATUS.BadRequest, e.Message, e.ClassName);
+                      end;
                     end;
+                  end;
 
                   LSelectedController.OnBeforeAction(LContext, LRouter.MethodToCall.Name, LHandled);
 
@@ -2136,8 +2155,11 @@ begin
                   if not Config[TMVCConfigKey.FallbackResource].IsEmpty then
                   begin
                     if (LContext.Request.PathInfo = '/') or (LContext.Request.PathInfo = '') then // useful for SPA
-                      Result := SendStaticFileIfPresent(LContext, TPath.Combine(Config[TMVCConfigKey.DocumentRoot],
+                    begin
+                      lFileName := TPath.GetFullPath(TPath.Combine(Config[TMVCConfigKey.DocumentRoot],
                         Config[TMVCConfigKey.FallbackResource]));
+                      Result := SendStaticFileIfPresent(LContext, lFileName);
+                    end;
                   end;
                   if (not Result) and (IsStaticFileRequest(ARequest, LFileName)) then
                   begin
@@ -2241,7 +2263,8 @@ procedure TMVCEngine.ExecuteAfterControllerActionMiddleware(const AContext: TWeb
 var
   I: Integer;
 begin
-  for I := FMiddlewares.Count - 1 downto 0 do
+  //for I := FMiddlewares.Count - 1 downto 0 do
+  for I := 0 to FMiddlewares.Count - 1 do
     FMiddlewares[I].OnAfterControllerAction(AContext, AActionName, AHandled);
 end;
 
@@ -2535,6 +2558,14 @@ begin
   // FSavedOnBeforeDispatch(ASender, ARequest, AResponse, AHandled);
   // end;
 
+  if IsShuttingDown then
+  begin
+    AResponse.StatusCode := HTTP_STATUS.ServiceUnavailable;
+    AResponse.ContentType := TMVCMediaType.TEXT_PLAIN;
+    AResponse.Content := 'Server is shutting down';
+    AHandled := True;
+  end;
+
   if not AHandled then
   begin
     try
@@ -2733,13 +2764,22 @@ end;
 class function TMVCStaticContents.IsStaticFile(const AViewPath, AWebRequestPath: string;
 out ARealFileName: string): Boolean;
 var
-  FileName: string;
+  lFileName, lWebRoot: string;
 begin
   if TDirectory.Exists(AViewPath) then
-    FileName := AViewPath + AWebRequestPath.Replace('/', TPath.DirectorySeparatorChar)
+  begin
+    lWebRoot := TPath.GetFullPath(AViewPath);
+  end
   else
-    FileName := GetApplicationFileNamePath + AViewPath + AWebRequestPath.Replace('/', TPath.DirectorySeparatorChar);
-  ARealFileName := FileName;
+  begin
+    lWebRoot := TPath.GetFullPath(GetApplicationFileNamePath + AViewPath);
+  end;
+  lFileName := TPath.GetFullPath(lWebRoot + AWebRequestPath.Replace('/', TPath.DirectorySeparatorChar));
+  if not lFileName.StartsWith(lWebRoot) then
+  begin
+    Exit(False);
+  end;
+  ARealFileName := lFileName;
   Result := TFile.Exists(ARealFileName);
 end;
 

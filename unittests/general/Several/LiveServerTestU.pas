@@ -66,8 +66,8 @@ type
 
   public
     [Test]
-    [TestCase('request url /fault', '/fault')]
-    [TestCase('request url /fault2', '/fault2')]
+    [TestCase('request url /fault', '/exception/fault')]
+    [TestCase('request url /fault2', '/exception/fault2')]
     procedure TestControllerWithExceptionInCreate(const URLSegment: string);
 
     [Test]
@@ -145,6 +145,7 @@ type
     [Test]
     procedure TestPostAListOfObjects;
     // test authentication/authorization with BasicAuth
+    [Test]
     procedure TestBasicAuth01;
     [Test]
     procedure TestBasicAuth02;
@@ -1527,10 +1528,48 @@ end;
 procedure TServerTest.TestTypedString1;
 var
   res: IRESTResponse;
+  lValues: array [0..7] of string;
+  s: string;
 begin
-  res := RESTClient.doGET('/typed/string1/daniele', []);
-  Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
-  Assert.areEqual('daniele modified from server', res.BodyAsString);
+  lValues[0] := 'daniele';
+  lValues[1] := 'dan''iele';
+  lValues[2] := '"daniele"';
+  lValues[3] := '"daniele teti"';
+  lValues[4] := '"daniele" "teti"';
+  lValues[5] := '"daniele" "teti"!';
+  lValues[6] := ' _\"daniele" "teti"!_ ';
+
+  for s in lValues do
+  begin
+    res := RESTClient.doGET('/typed/string1', [s]);
+    Assert.AreEqual(HTTP_STATUS.OK, res.ResponseCode, 'Cannot route when param is ' + s);
+    Assert.areEqual('*' + s + '*', res.BodyAsString);
+  end;
+
+//  res := RESTClient.doGET('/typed/string1/daniele', []);
+//  Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
+//  Assert.areEqual('daniele modified from server', res.BodyAsString);
+//
+//  res := RESTClient.doGET('/typed/string1/dan''iele', []);
+//  Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
+//  Assert.areEqual('dan''iele modified from server', res.BodyAsString);
+//
+//  res := RESTClient.doGET('/typed/string1/"the value"', []);
+//  Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
+//  Assert.areEqual('"the value" modified from server', res.BodyAsString);
+//
+//  res := RESTClient.doGET('/typed/string1/"the:value"', []);
+//  Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
+//  Assert.areEqual('"the value" modified from server', res.BodyAsString);
+//
+//  res := RESTClient.doGET('/typed/string1/"the:value!"', []);
+//  Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
+//  Assert.areEqual('"the value" modified from server', res.BodyAsString);
+//
+//  res := RESTClient.doGET('/typed/string1/"the:value!?"', []);
+//  Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
+//  Assert.areEqual('"the value" modified from server', res.BodyAsString);
+
 end;
 
 procedure TServerTest.TestWrongJSONBody;

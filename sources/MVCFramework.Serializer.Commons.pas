@@ -225,12 +225,12 @@ type
   [MVCNameCase(ncLowerCase)]
   TMVCTask = class
   private
-    fID: String;
-    fHREF: String;
+    fID: string;
+    fHREF: string;
   public
-    property HREF: String read fHREF write fHREF;
-    property ID: String read fID write fID;
-    constructor Create(const HREF, ID: String);
+    property HREF: string read fHREF write fHREF;
+    property ID: string read fID write fID;
+    constructor Create(const HREF, ID: string);
   end;
 
   [MVCNameCase(ncLowerCase)]
@@ -240,7 +240,7 @@ type
   public
     property Task: TMVCTask read fTask;
     // constructor Create(const aTask: TMVCTask); overload;
-    constructor Create(const HREF, ID: String);
+    constructor Create(const HREF, ID: string);
     destructor Destroy; override;
   end;
 
@@ -283,6 +283,9 @@ function TimeToISOTime(const ATime: TTime): string;
 
 procedure MapDataSetFieldToRTTIField(const AField: TField; const aRTTIField: TRttiField; const AObject: TObject);
 function MapDataSetFieldToNullableRTTIField(const AValue: TValue; const AField: TField; const aRTTIField: TRttiField;
+  const AObject: TObject): boolean;
+function MapDataSetFieldToNullableRTTIProperty(const AValue: TValue; const AField: TField;
+  const aRTTIProp: TRttiProperty;
   const AObject: TObject): boolean;
 
 /// <summary>
@@ -495,7 +498,7 @@ var
   Context: TRttiContext;
   ObjectType: TRttiType;
 begin
-{$IF not Defined(SeattleOrBetter)}
+{$IF not Defined(TokyoOrBetter)}
   Result := nil;
 {$ENDIF}
   Context := TRttiContext.Create;
@@ -731,7 +734,7 @@ end;
 
 { TMVCTask }
 
-constructor TMVCTask.Create(const HREF, ID: String);
+constructor TMVCTask.Create(const HREF, ID: string);
 begin
   inherited Create;
   fHREF := HREF;
@@ -746,7 +749,7 @@ end;
 // fTask := aTask;
 // end;
 
-constructor TMVCAcceptedResponse.Create(const HREF, ID: String);
+constructor TMVCAcceptedResponse.Create(const HREF, ID: string);
 begin
   inherited Create;
   fTask := TMVCTask.Create(HREF, ID);
@@ -804,6 +807,9 @@ var
   lInternalStream: TStream;
   lSStream: TStringStream;
   lValue: TValue;
+{$IF not Defined(TokyoOrBetter)}
+  lFieldValue: string;
+{$ENDIF}
 begin
   lValue := aRTTIField.GetValue(AObject);
   if lValue.Kind = tkRecord then
@@ -905,12 +911,19 @@ begin
         TBlobField(AField).SaveToStream(lInternalStream);
         lInternalStream.Position := 0;
       end;
-{$IF Defined(SeattleOrBetter)}
     ftGuid:
       begin
+{$IF Defined(TokyoOrBetter)}
         aRTTIField.SetValue(AObject, TValue.From<TGUID>(AField.AsGuid));
-      end;
+{$ELSE}
+        lFieldValue := AField.AsString;
+        if lFieldValue.IsEmpty then
+        begin
+          lFieldValue := '{00000000-0000-0000-0000-000000000000}';
+        end;
+        aRTTIField.SetValue(AObject, TValue.From<TGUID>(StringToGUID(lFieldValue)));
 {$ENDIF}
+      end;
   else
     raise EMVCException.CreateFmt('Unsupported FieldType (%d) for field %s', [Ord(AField.DataType), AField.Name]);
   end;
@@ -929,7 +942,7 @@ begin
     end
     else
     begin
-      aRTTIField.SetValue(aObject, TValue.From<NullableString>(AField.AsString));
+      aRTTIField.SetValue(AObject, TValue.From<NullableString>(AField.AsString));
     end;
     Result := True;
   end
@@ -937,11 +950,11 @@ begin
   begin
     if AField.IsNull then
     begin
-      aRTTIField.GetValue(aObject).AsType<NullableInt32>().Clear;
+      aRTTIField.GetValue(AObject).AsType<NullableInt32>().Clear;
     end
     else
     begin
-      aRTTIField.SetValue(aObject, TValue.From<NullableInt32>(AField.AsLargeInt));
+      aRTTIField.SetValue(AObject, TValue.From<NullableInt32>(AField.AsLargeInt));
     end;
     Result := True;
   end
@@ -949,11 +962,11 @@ begin
   begin
     if AField.IsNull then
     begin
-      aRTTIField.GetValue(aObject).AsType<NullableUInt32>().Clear;
+      aRTTIField.GetValue(AObject).AsType<NullableUInt32>().Clear;
     end
     else
     begin
-      aRTTIField.SetValue(aObject, TValue.From<NullableUInt32>(AField.AsLargeInt));
+      aRTTIField.SetValue(AObject, TValue.From<NullableUInt32>(AField.AsLargeInt));
     end;
     Result := True;
   end
@@ -961,11 +974,11 @@ begin
   begin
     if AField.IsNull then
     begin
-      aRTTIField.GetValue(aObject).AsType<NullableInt64>().Clear;
+      aRTTIField.GetValue(AObject).AsType<NullableInt64>().Clear;
     end
     else
     begin
-      aRTTIField.SetValue(aObject, TValue.From<NullableInt64>(AField.AsLargeInt));
+      aRTTIField.SetValue(AObject, TValue.From<NullableInt64>(AField.AsLargeInt));
     end;
     Result := True;
   end
@@ -973,11 +986,11 @@ begin
   begin
     if AField.IsNull then
     begin
-      aRTTIField.GetValue(aObject).AsType<NullableUInt64>().Clear;
+      aRTTIField.GetValue(AObject).AsType<NullableUInt64>().Clear;
     end
     else
     begin
-      aRTTIField.SetValue(aObject, TValue.From<NullableUInt64>(AField.AsLargeInt));
+      aRTTIField.SetValue(AObject, TValue.From<NullableUInt64>(AField.AsLargeInt));
     end;
     Result := True;
   end
@@ -985,11 +998,11 @@ begin
   begin
     if AField.IsNull then
     begin
-      aRTTIField.GetValue(aObject).AsType<NullableInt16>().Clear;
+      aRTTIField.GetValue(AObject).AsType<NullableInt16>().Clear;
     end
     else
     begin
-      aRTTIField.SetValue(aObject, TValue.From<NullableInt16>(AField.AsLargeInt));
+      aRTTIField.SetValue(AObject, TValue.From<NullableInt16>(AField.AsLargeInt));
     end;
     Result := True;
   end
@@ -997,11 +1010,11 @@ begin
   begin
     if AField.IsNull then
     begin
-      aRTTIField.GetValue(aObject).AsType<NullableUInt16>().Clear;
+      aRTTIField.GetValue(AObject).AsType<NullableUInt16>().Clear;
     end
     else
     begin
-      aRTTIField.SetValue(aObject, TValue.From<NullableUInt16>(AField.AsInteger));
+      aRTTIField.SetValue(AObject, TValue.From<NullableUInt16>(AField.AsInteger));
     end;
     Result := True;
   end
@@ -1009,11 +1022,11 @@ begin
   begin
     if AField.IsNull then
     begin
-      aRTTIField.GetValue(aObject).AsType<NullableTDate>().Clear;
+      aRTTIField.GetValue(AObject).AsType<NullableTDate>().Clear;
     end
     else
     begin
-      aRTTIField.SetValue(aObject, TValue.From<NullableTDate>(AField.AsDateTime));
+      aRTTIField.SetValue(AObject, TValue.From<NullableTDate>(AField.AsDateTime));
     end;
     Result := True;
   end
@@ -1021,11 +1034,11 @@ begin
   begin
     if AField.IsNull then
     begin
-      aRTTIField.GetValue(aObject).AsType<NullableTDateTime>().Clear;
+      aRTTIField.GetValue(AObject).AsType<NullableTDateTime>().Clear;
     end
     else
     begin
-      aRTTIField.SetValue(aObject, TValue.From<NullableTDateTime>(AField.AsDateTime));
+      aRTTIField.SetValue(AObject, TValue.From<NullableTDateTime>(AField.AsDateTime));
     end;
     Result := True;
   end
@@ -1033,11 +1046,11 @@ begin
   begin
     if AField.IsNull then
     begin
-      aRTTIField.GetValue(aObject).AsType<NullableTTime>().Clear;
+      aRTTIField.GetValue(AObject).AsType<NullableTTime>().Clear;
     end
     else
     begin
-      aRTTIField.SetValue(aObject, TValue.From<NullableTTime>(AField.AsDateTime));
+      aRTTIField.SetValue(AObject, TValue.From<NullableTTime>(AField.AsDateTime));
     end;
     Result := True;
   end
@@ -1045,11 +1058,11 @@ begin
   begin
     if AField.IsNull then
     begin
-      aRTTIField.GetValue(aObject).AsType<NullableBoolean>().Clear;
+      aRTTIField.GetValue(AObject).AsType<NullableBoolean>().Clear;
     end
     else
     begin
-      aRTTIField.SetValue(aObject, TValue.From<NullableBoolean>(AField.AsBoolean));
+      aRTTIField.SetValue(AObject, TValue.From<NullableBoolean>(AField.AsBoolean));
     end;
     Result := True;
   end
@@ -1057,11 +1070,11 @@ begin
   begin
     if AField.IsNull then
     begin
-      aRTTIField.GetValue(aObject).AsType<NullableDouble>().Clear;
+      aRTTIField.GetValue(AObject).AsType<NullableDouble>().Clear;
     end
     else
     begin
-      aRTTIField.SetValue(aObject, TValue.From<NullableDouble>(AField.AsFloat));
+      aRTTIField.SetValue(AObject, TValue.From<NullableDouble>(AField.AsFloat));
     end;
     Result := True;
   end
@@ -1069,11 +1082,11 @@ begin
   begin
     if AField.IsNull then
     begin
-      aRTTIField.GetValue(aObject).AsType<NullableSingle>().Clear;
+      aRTTIField.GetValue(AObject).AsType<NullableSingle>().Clear;
     end
     else
     begin
-      aRTTIField.SetValue(aObject, TValue.From<NullableSingle>(AField.AsSingle));
+      aRTTIField.SetValue(AObject, TValue.From<NullableSingle>(AField.AsSingle));
     end;
     Result := True;
   end
@@ -1081,11 +1094,11 @@ begin
   begin
     if AField.IsNull then
     begin
-      aRTTIField.GetValue(aObject).AsType<NullableExtended>().Clear;
+      aRTTIField.GetValue(AObject).AsType<NullableExtended>().Clear;
     end
     else
     begin
-      aRTTIField.SetValue(aObject, TValue.From<NullableExtended>(AField.AsExtended));
+      aRTTIField.SetValue(AObject, TValue.From<NullableExtended>(AField.AsExtended));
     end;
     Result := True;
   end
@@ -1093,11 +1106,199 @@ begin
   begin
     if AField.IsNull then
     begin
-      aRTTIField.GetValue(aObject).AsType<NullableCurrency>().Clear;
+      aRTTIField.GetValue(AObject).AsType<NullableCurrency>().Clear;
     end
     else
     begin
-      aRTTIField.SetValue(aObject, TValue.From<NullableCurrency>(AField.AsCurrency));
+      aRTTIField.SetValue(AObject, TValue.From<NullableCurrency>(AField.AsCurrency));
+    end;
+    Result := True;
+  end
+end;
+
+function MapDataSetFieldToNullableRTTIProperty(const AValue: TValue; const AField: TField;
+  const aRTTIProp: TRttiProperty;
+  const AObject: TObject): boolean;
+begin
+  Assert(AValue.Kind = tkRecord);
+  Result := false;
+  if AValue.IsType(TypeInfo(NullableString)) then
+  begin
+    if AField.IsNull then
+    begin
+      aRTTIProp.GetValue(AObject).AsType<NullableString>().Clear;
+    end
+    else
+    begin
+      aRTTIProp.SetValue(AObject, TValue.From<NullableString>(AField.AsString));
+    end;
+    Result := True;
+  end
+  else if AValue.IsType(TypeInfo(NullableInt32)) then
+  begin
+    if AField.IsNull then
+    begin
+      aRTTIProp.GetValue(AObject).AsType<NullableInt32>().Clear;
+    end
+    else
+    begin
+      aRTTIProp.SetValue(AObject, TValue.From<NullableInt32>(AField.AsLargeInt));
+    end;
+    Result := True;
+  end
+  else if AValue.IsType(TypeInfo(NullableUInt32)) then
+  begin
+    if AField.IsNull then
+    begin
+      aRTTIProp.GetValue(AObject).AsType<NullableUInt32>().Clear;
+    end
+    else
+    begin
+      aRTTIProp.SetValue(AObject, TValue.From<NullableUInt32>(AField.AsLargeInt));
+    end;
+    Result := True;
+  end
+  else if AValue.IsType(TypeInfo(NullableInt64)) then
+  begin
+    if AField.IsNull then
+    begin
+      aRTTIProp.GetValue(AObject).AsType<NullableInt64>().Clear;
+    end
+    else
+    begin
+      aRTTIProp.SetValue(AObject, TValue.From<NullableInt64>(AField.AsLargeInt));
+    end;
+    Result := True;
+  end
+  else if AValue.IsType(TypeInfo(NullableUInt64)) then
+  begin
+    if AField.IsNull then
+    begin
+      aRTTIProp.GetValue(AObject).AsType<NullableUInt64>().Clear;
+    end
+    else
+    begin
+      aRTTIProp.SetValue(AObject, TValue.From<NullableUInt64>(AField.AsLargeInt));
+    end;
+    Result := True;
+  end
+  else if AValue.IsType(TypeInfo(NullableInt16)) then
+  begin
+    if AField.IsNull then
+    begin
+      aRTTIProp.GetValue(AObject).AsType<NullableInt16>().Clear;
+    end
+    else
+    begin
+      aRTTIProp.SetValue(AObject, TValue.From<NullableInt16>(AField.AsLargeInt));
+    end;
+    Result := True;
+  end
+  else if AValue.IsType(TypeInfo(NullableUInt16)) then
+  begin
+    if AField.IsNull then
+    begin
+      aRTTIProp.GetValue(AObject).AsType<NullableUInt16>().Clear;
+    end
+    else
+    begin
+      aRTTIProp.SetValue(AObject, TValue.From<NullableUInt16>(AField.AsInteger));
+    end;
+    Result := True;
+  end
+  else if AValue.IsType(TypeInfo(NullableTDate)) then
+  begin
+    if AField.IsNull then
+    begin
+      aRTTIProp.GetValue(AObject).AsType<NullableTDate>().Clear;
+    end
+    else
+    begin
+      aRTTIProp.SetValue(AObject, TValue.From<NullableTDate>(AField.AsDateTime));
+    end;
+    Result := True;
+  end
+  else if AValue.IsType(TypeInfo(NullableTDateTime)) then
+  begin
+    if AField.IsNull then
+    begin
+      aRTTIProp.GetValue(AObject).AsType<NullableTDateTime>().Clear;
+    end
+    else
+    begin
+      aRTTIProp.SetValue(AObject, TValue.From<NullableTDateTime>(AField.AsDateTime));
+    end;
+    Result := True;
+  end
+  else if AValue.IsType(TypeInfo(NullableTTime)) then
+  begin
+    if AField.IsNull then
+    begin
+      aRTTIProp.GetValue(AObject).AsType<NullableTTime>().Clear;
+    end
+    else
+    begin
+      aRTTIProp.SetValue(AObject, TValue.From<NullableTTime>(AField.AsDateTime));
+    end;
+    Result := True;
+  end
+  else if AValue.IsType(TypeInfo(NullableBoolean)) then
+  begin
+    if AField.IsNull then
+    begin
+      aRTTIProp.GetValue(AObject).AsType<NullableBoolean>().Clear;
+    end
+    else
+    begin
+      aRTTIProp.SetValue(AObject, TValue.From<NullableBoolean>(AField.AsBoolean));
+    end;
+    Result := True;
+  end
+  else if AValue.IsType(TypeInfo(NullableDouble)) then
+  begin
+    if AField.IsNull then
+    begin
+      aRTTIProp.GetValue(AObject).AsType<NullableDouble>().Clear;
+    end
+    else
+    begin
+      aRTTIProp.SetValue(AObject, TValue.From<NullableDouble>(AField.AsFloat));
+    end;
+    Result := True;
+  end
+  else if AValue.IsType(TypeInfo(NullableSingle)) then
+  begin
+    if AField.IsNull then
+    begin
+      aRTTIProp.GetValue(AObject).AsType<NullableSingle>().Clear;
+    end
+    else
+    begin
+      aRTTIProp.SetValue(AObject, TValue.From<NullableSingle>(AField.AsSingle));
+    end;
+    Result := True;
+  end
+  else if AValue.IsType(TypeInfo(NullableExtended)) then
+  begin
+    if AField.IsNull then
+    begin
+      aRTTIProp.GetValue(AObject).AsType<NullableExtended>().Clear;
+    end
+    else
+    begin
+      aRTTIProp.SetValue(AObject, TValue.From<NullableExtended>(AField.AsExtended));
+    end;
+    Result := True;
+  end
+  else if AValue.IsType(TypeInfo(NullableCurrency)) then
+  begin
+    if AField.IsNull then
+    begin
+      aRTTIProp.GetValue(AObject).AsType<NullableCurrency>().Clear;
+    end
+    else
+    begin
+      aRTTIProp.SetValue(AObject, TValue.From<NullableCurrency>(AField.AsCurrency));
     end;
     Result := True;
   end

@@ -234,15 +234,18 @@ type
     FColor: TColorEnum;
     FMonthName: TMonthEnum;
     FMonthOrder: TMonthEnum;
+    FMonthName2: TMonthEnum;
   public
     property Id: Int64 read FId write FId;
     property Code: Integer read FCode write FCode;
     [MVCNameAs('Name')]
     property name: string read FName write FName;
     property Color: TColorEnum read FColor write FColor;
-    [MVCEnumSerializationTypeAttribute(estEnumName, 'me')]
+    [MVCEnumSerialization(estEnumMappedValues, 'January,February,March,April')]
     property MonthName: TMonthEnum read FMonthName write FMonthName;
-    [MVCEnumSerializationTypeAttribute(estEnumOrd)]
+    [MVCEnumSerialization(estEnumName)]
+    property MonthName2: TMonthEnum read FMonthName2 write FMonthName2;
+    [MVCEnumSerialization(estEnumOrd)]
     property MonthOrder: TMonthEnum read FMonthOrder write FMonthOrder;
   end;
 

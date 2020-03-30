@@ -45,7 +45,8 @@ uses
   MVCFramework.Serializer.Commons,
   MVCFramework.DuckTyping,
   System.JSON,
-  JsonDataObjects, System.SysUtils;
+  JsonDataObjects,
+  System.SysUtils;
 
 type
 
@@ -165,7 +166,8 @@ implementation
 
 uses
   MVCFramework.Serializer.JsonDataObjects.CustomTypes,
-  MVCFramework.Logger, MVCFramework.DataSet.Utils,
+  MVCFramework.Logger,
+  MVCFramework.DataSet.Utils,
   MVCFramework.Nullables;
 
 type
@@ -206,9 +208,9 @@ var
   ValueTypeAtt: MVCValueAsTypeAttribute;
   CastValue, CastedValue: TValue;
   I: Integer;
-  LEnumAsAttr: MVCEnumSerializationTypeAttribute;
+  LEnumAsAttr: MVCEnumSerializationAttribute;
   LEnumSerType: TMVCEnumSerializationType;
-  LEnumPrefix: string;
+  LEnumMappedValues: TList<string>;
   LEnumName: string;
 begin
   if SameText(AName, 'RefCount') then
@@ -280,26 +282,31 @@ begin
         else
         begin
           LEnumSerType := estEnumName;
-          LEnumPrefix := '';
-          if TMVCSerializerHelper.AttributeExists<MVCEnumSerializationTypeAttribute>(ACustomAttributes, LEnumAsAttr)
+          LEnumMappedValues := nil;
+          if TMVCSerializerHelper.AttributeExists<MVCEnumSerializationAttribute>(ACustomAttributes, LEnumAsAttr)
           then
           begin
-            LEnumSerType := LEnumAsAttr.EnumSerializationType;
-            LEnumPrefix := LEnumAsAttr.EnumPrefix;
+            LEnumSerType := LEnumAsAttr.SerializationType;
+            LEnumMappedValues := LEnumAsAttr.MappedValues;
           end;
 
           case LEnumSerType of
             estEnumName:
               begin
                 LEnumName := GetEnumName(AValue.TypeInfo, AValue.AsOrdinal);
-                if not LEnumPrefix.IsEmpty and LEnumName.StartsWith(LEnumPrefix) then
-                  LEnumName := LEnumName.Remove(0, LEnumPrefix.Length);
 
                 AJsonObject.S[AName] := LEnumName;
               end;
             estEnumOrd:
               begin
                 AJsonObject.I[AName] := AValue.AsOrdinal;
+              end;
+            estEnumMappedValues:
+              begin
+                if (LEnumMappedValues.Count - 1) < AValue.AsOrdinal then
+                  raise EMVCException.Create('Enumerator value is not mapped in MappedValues');
+
+                AJsonObject.S[AName] := LEnumMappedValues[AValue.AsOrdinal];
               end;
           end;
         end;
@@ -399,9 +406,9 @@ begin
     tkArray, tkDynArray:
       begin
         if AValue.GetArrayLength > 0 then
-        Begin
+        begin
           for I := 0 to AValue.GetArrayLength - 1 do
-          Begin
+          begin
             case AValue.GetArrayElement(I).Kind of
               tkChar, tkString, tkWChar, tkLString, tkWString, tkUString:
                 AJsonObject.A[AName].Add(AValue.GetArrayElement(I).AsString);
@@ -415,8 +422,8 @@ begin
               raise EMVCSerializationException.CreateFmt
                 ('Cannot serialize property or field "%s" of TypeKind tkArray or tkDynArray.', [AName]);
             end;
-          End;
-        End;
+          end;
+        end;
       end;
 
     tkUnknown:
@@ -775,7 +782,10 @@ begin
   try
     if lJsonBase is TJsonObject then
     begin
-      ADataSet.Edit;
+      if not (ADataSet.State in [dsInsert, dsEdit]) then
+      begin
+        ADataSet.Edit;
+      end;
       JsonObjectToDataSet(TJsonObject(lJsonBase), ADataSet, AIgnoredFields, ANameCase);
       ADataSet.Post;
     end
@@ -848,9 +858,11 @@ var
   ChildObject: TObject;
   ChildList: IMVCList;
   ChildListOfAtt: MVCListOfAttribute;
-  LEnumAsAttr: MVCEnumSerializationTypeAttribute;
-  LEnumPrefix: string;
+  LEnumAsAttr: MVCEnumSerializationAttribute;
+  LEnumMappedValues: TList<string>;
+  LEnumSerType: TMVCEnumSerializationType;
   LClazz: TClass;
+  LMappedValueIndex: Integer;
 begin
   if GetTypeSerializers.ContainsKey(AValue.TypeInfo) then
   begin
@@ -912,12 +924,27 @@ begin
         end
         else if (AValue.Kind = tkEnumeration) then
         begin
-          LEnumPrefix := '';
-          if TMVCSerializerHelper.AttributeExists<MVCEnumSerializationTypeAttribute>(ACustomAttributes, LEnumAsAttr)
-          then
-            LEnumPrefix := LEnumAsAttr.EnumPrefix;
+          LEnumSerType := estEnumName;
+          LEnumMappedValues := nil;
+          if TMVCSerializerHelper.AttributeExists<MVCEnumSerializationAttribute>(ACustomAttributes, LEnumAsAttr) then
+          begin
+            LEnumSerType := LEnumAsAttr.SerializationType;
+            LEnumMappedValues := LEnumAsAttr.MappedValues;
+          end;
 
-          TValue.Make(GetEnumValue(AValue.TypeInfo, LEnumPrefix + AJsonObject[AName].Value), AValue.TypeInfo, AValue)
+          if LEnumSerType = estEnumName then
+          begin
+            TValue.Make(GetEnumValue(AValue.TypeInfo, AJsonObject[AName].Value), AValue.TypeInfo, AValue)
+          end
+          else
+          begin
+            LMappedValueIndex := LEnumMappedValues.IndexOf(AJsonObject[AName].Value);
+            if LMappedValueIndex < 0 then
+              raise EMVCSerializationException.CreateFmt('Cannot deserialize property %s from mapped values', [AName]);
+
+            TValue.Make(GetEnumValue(AValue.TypeInfo, GetEnumName(AValue.TypeInfo, LMappedValueIndex)),
+              AValue.TypeInfo, AValue)
+          end;
         end
         else
           AValue := TValue.From<string>(AJsonObject[AName].Value);
@@ -1223,9 +1250,9 @@ begin
               continue;
 
 {$ENDIF}
-            if (Prop.IsWritable or Prop.GetValue(AObject).IsObject) and
-              (not TMVCSerializerHelper.HasAttribute<MVCDoNotSerializeAttribute>(Prop)) and
-              (not IsIgnoredAttribute(AIgnoredAttributes, Prop.Name)) then
+            if ((not TMVCSerializerHelper.HasAttribute<MVCDoNotSerializeAttribute>(Prop)) and
+               (not IsIgnoredAttribute(AIgnoredAttributes, Prop.Name)) and
+               (Prop.IsWritable or Prop.GetValue(AObject).IsObject)) then
             begin
               AttributeValue := Prop.GetValue(AObject);
               lKeyName := TMVCSerializerHelper.GetKeyName(Prop, ObjType);

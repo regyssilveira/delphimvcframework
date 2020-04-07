@@ -1324,7 +1324,8 @@ begin
     FContentFields := TDictionary<string, string>.Create;
     for I := 0 to Pred(FWebRequest.ContentFields.Count) do
     begin
-      FContentFields.Add(LowerCase(FWebRequest.ContentFields.Names[I]), FWebRequest.ContentFields.ValueFromIndex[I]);
+      FContentFields.AddOrSetValue(LowerCase(FWebRequest.ContentFields.Names[I]),
+        FWebRequest.ContentFields.ValueFromIndex[I]);
     end;
   end;
   Result := FContentFields;
@@ -1964,6 +1965,7 @@ begin
   FMediaTypes.Add('.jpg', TMVCMediaType.IMAGE_JPEG);
   FMediaTypes.Add('.jpeg', TMVCMediaType.IMAGE_JPEG);
   FMediaTypes.Add('.png', TMVCMediaType.IMAGE_PNG);
+  FMediaTypes.Add('.ico', TMVCMediaType.IMAGE_X_ICON);
   FMediaTypes.Add('.appcache', TMVCMediaType.TEXT_CACHEMANIFEST);
 
   Log.Info('EXIT: Config default values', LOGGERPRO_TAG);
@@ -2196,7 +2198,12 @@ begin
                     LContext.Response.StatusCode := HTTP_STATUS.NotFound;
                     LContext.Response.ReasonString := 'Not Found';
                     fOnRouterLog(LRouter, rlsRouteNotFound, LContext);
-                    raise EMVCException.Create(LContext.Response.StatusCode, LContext.Response.ReasonString);
+                    raise EMVCException.Create(
+                      LContext.Response.ReasonString,
+                      LContext.Request.HTTPMethodAsString + ' ' + LContext.Request.PathInfo,
+                      0,
+                      HTTP_STATUS.NotFound
+                      );
                   end;
                 end
                 else

@@ -187,9 +187,13 @@ type
     [Test]
     procedure TestTypedBooleans;
     [Test]
+    procedure TestTypedTGuid1;
+    [Test]
     procedure TestStringDictionary;
     [Test]
     procedure TestWrongJSONBody;
+    [Test]
+    procedure TestTypedIntegerWrongParam1;
 
     // test nullables
     [Test]
@@ -210,6 +214,11 @@ type
     // test web server
     [Test]
     procedure TestDirectoryTraversal1;
+
+    // test server side views
+    [Test]
+    procedure TestViewDataViewDataSet;
+
   end;
 
   [TestFixture]
@@ -1322,7 +1331,7 @@ procedure TServerTest.TestDirectoryTraversal1;
 var
   lRes: IRESTResponse;
   I: Integer;
-  lUrl: String;
+  lUrl: string;
 begin
   lRes := RESTClient
     .Accept(TMVCMediaType.TEXT_HTML)
@@ -1515,6 +1524,16 @@ begin
   Assert.areEqual('1234 modified from server', res.BodyAsString);
 end;
 
+procedure TServerTest.TestTypedIntegerWrongParam1;
+var
+  res: IRESTResponse;
+begin
+  res := RESTClient.doGET('/typed/integer1/boom', []);
+  Assert.isTrue(res.ResponseCode = HTTP_STATUS.BadRequest, 'Cannot route');
+  Assert.Contains(res.BodyAsString, 'EConvertError');
+  Assert.Contains(res.BodyAsString, '''boom'' is not a valid');
+end;
+
 procedure TServerTest.TestTypedSingle1;
 var
   res: IRESTResponse;
@@ -1528,7 +1547,7 @@ end;
 procedure TServerTest.TestTypedString1;
 var
   res: IRESTResponse;
-  lValues: array [0..7] of string;
+  lValues: array [0 .. 7] of string;
   s: string;
 begin
   lValues[0] := 'daniele';
@@ -1542,34 +1561,73 @@ begin
   for s in lValues do
   begin
     res := RESTClient.doGET('/typed/string1', [s]);
-    Assert.AreEqual(HTTP_STATUS.OK, res.ResponseCode, 'Cannot route when param is ' + s);
+    Assert.areEqual(HTTP_STATUS.OK, res.ResponseCode, 'Cannot route when param is ' + s);
     Assert.areEqual('*' + s + '*', res.BodyAsString);
   end;
 
-//  res := RESTClient.doGET('/typed/string1/daniele', []);
-//  Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
-//  Assert.areEqual('daniele modified from server', res.BodyAsString);
-//
-//  res := RESTClient.doGET('/typed/string1/dan''iele', []);
-//  Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
-//  Assert.areEqual('dan''iele modified from server', res.BodyAsString);
-//
-//  res := RESTClient.doGET('/typed/string1/"the value"', []);
-//  Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
-//  Assert.areEqual('"the value" modified from server', res.BodyAsString);
-//
-//  res := RESTClient.doGET('/typed/string1/"the:value"', []);
-//  Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
-//  Assert.areEqual('"the value" modified from server', res.BodyAsString);
-//
-//  res := RESTClient.doGET('/typed/string1/"the:value!"', []);
-//  Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
-//  Assert.areEqual('"the value" modified from server', res.BodyAsString);
-//
-//  res := RESTClient.doGET('/typed/string1/"the:value!?"', []);
-//  Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
-//  Assert.areEqual('"the value" modified from server', res.BodyAsString);
+  // res := RESTClient.doGET('/typed/string1/daniele', []);
+  // Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
+  // Assert.areEqual('daniele modified from server', res.BodyAsString);
+  //
+  // res := RESTClient.doGET('/typed/string1/dan''iele', []);
+  // Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
+  // Assert.areEqual('dan''iele modified from server', res.BodyAsString);
+  //
+  // res := RESTClient.doGET('/typed/string1/"the value"', []);
+  // Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
+  // Assert.areEqual('"the value" modified from server', res.BodyAsString);
+  //
+  // res := RESTClient.doGET('/typed/string1/"the:value"', []);
+  // Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
+  // Assert.areEqual('"the value" modified from server', res.BodyAsString);
+  //
+  // res := RESTClient.doGET('/typed/string1/"the:value!"', []);
+  // Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
+  // Assert.areEqual('"the value" modified from server', res.BodyAsString);
+  //
+  // res := RESTClient.doGET('/typed/string1/"the:value!?"', []);
+  // Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
+  // Assert.areEqual('"the value" modified from server', res.BodyAsString);
 
+end;
+
+procedure TServerTest.TestTypedTGuid1;
+var
+  res: IRESTResponse;
+begin
+  res := RESTClient.doGET('/typed/tguid1/{161BEA56-480B-40A8-AF0E-7FDF6B08E121}', []);
+  Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
+  Assert.areEqual('{161BEA56-480B-40A8-AF0E-7FDF6B08E121} modified from server', res.BodyAsString);
+
+  res := RESTClient.doGET('/typed/tguid1/161BEA56-480B-40A8-AF0E-7FDF6B08E121', []);
+  Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
+  Assert.areEqual('{161BEA56-480B-40A8-AF0E-7FDF6B08E121} modified from server', res.BodyAsString);
+
+  res := RESTClient.doGET('/typed/tguid1/161BEA56480B40A8AF0E7FDF6B08E121', []);
+  Assert.isTrue(res.ResponseCode = HTTP_STATUS.OK, 'Cannot route');
+  Assert.areEqual('{161BEA56-480B-40A8-AF0E-7FDF6B08E121} modified from server', res.BodyAsString);
+end;
+
+procedure TServerTest.TestViewDataViewDataSet;
+var
+  lRes: IRESTResponse;
+begin
+  lRes := RESTClient.Accept(TMVCMediaType.TEXT_PLAIN).doGET('/website/list', []);
+  var lLines := lRes.BodyAsString.Split([sLineBreak]);
+  var lCount: Integer := 1001;
+  for var lLine in lLines do
+  begin
+    var lLinePieces := lLine.Split(['|']);
+    if Length(lLinePieces) = 1 then
+    begin
+      lCount := 1001;
+      Continue;
+    end;
+    Assert.AreEqual(9, Length(lLinePieces));
+    Assert.AreEqual(lCount, lLinePieces[0].ToInteger);
+    Inc(lCount);
+  end;
+  Assert.areEqual(HTTP_STATUS.OK, lRes.ResponseCode);
 end;
 
 procedure TServerTest.TestWrongJSONBody;

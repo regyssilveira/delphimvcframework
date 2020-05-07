@@ -218,6 +218,7 @@ type
   end;
 
 const
+  JWT_AUTHENTICATION_TAG = 'JWT Authentication';
   SECURITY_BEARER_NAME = 'bearer';
   SECURITY_BASIC_NAME = 'basic';
   JWT_JSON_SCHEMA = '{' + sLineBreak + '	 "type": "object",' + sLineBreak + '	 "properties": {' + sLineBreak +
@@ -426,6 +427,7 @@ var
   lSwagDef: TSwagDefinition;
   lClassName: string;
   lIndex: Integer;
+  lJsonSchema: TJsonFieldArray;
 begin
   for lAttr in AMethod.GetAttributes do
   begin
@@ -482,13 +484,28 @@ begin
             lSwagDefinition := TSwagDefinition.Create;
             lSwagDefinition.Name := lClassName;
             lSwagDefinition.JsonSchema := ExtractJsonSchemaFromClass(lSwagResponsesAttr.JsonSchemaClass,
-              lSwagResponsesAttr.IsArray);
+              False);
             ASwagDefinitions.Add(lSwagDefinition);
           end;
         finally
           lSwagDef.Free;
         end;
-        lSwagResponse.Schema.Name := lClassName;
+        if lSwagResponsesAttr.IsArray then
+        begin
+          lJsonSchema := TJsonFieldArray.Create;
+          try
+            lJsonSchema.Name := 'items';
+            lJsonSchema.ItemFieldType := TJsonFieldObject.Create;
+            TJsonFieldObject(lJsonSchema.ItemFieldType).Ref := lClassName;
+            lSwagResponse.Schema.JsonSchema := lJsonSchema.ToJsonSchema;
+          finally
+            lJsonSchema.Free;
+          end;
+        end
+        else
+        begin
+          lSwagResponse.Schema.Name := lClassName;
+        end;
       end;
       ASwagPathOperation.Responses.Add(lSwagResponse.StatusCode, lSwagResponse);
     end;
@@ -606,7 +623,7 @@ var
   lSwagParam: TSwagRequestParameter;
 begin
   lSwagPathOp := TSwagPathOperation.Create;
-  lSwagPathOp.Tags.Add('JWT Authentication');
+  lSwagPathOp.Tags.Add(JWT_AUTHENTICATION_TAG);
   lSwagPathOp.Operation := ohvPost;
   lSwagPathOp.Security.Add(SECURITY_BASIC_NAME);
   lSwagPathOp.Description := 'Create JSON Web Token';
@@ -933,6 +950,7 @@ begin
   fDescription := ADescription;
   fJsonSchema := AJsonSchema;
   fJsonSchemaClass := nil;
+  fIsArray := False;
 end;
 
 constructor MVCSwagResponsesAttribute.Create(const AStatusCode: Integer; const ADescription: string;

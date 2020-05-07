@@ -35,11 +35,11 @@ uses
   System.SysUtils,
   System.SyncObjs,
   System.IOUtils,
-  System.Generics.Collections,
   Data.DB,
   IdGlobal,
   IdCoderMIME,
   IdContext,
+  System.Generics.Collections,
   JsonDataObjects;
 
 {$I dmvcframeworkbuildconsts.inc}
@@ -76,6 +76,8 @@ type
     IMAGE_X_PNG = 'image/x-png';
     IMAGE_X_ICON = 'image/x-icon';
     IMAGE_PNG = 'image/png';
+    IMAGE_SVG_XML = 'image/svg+xml';
+    IMAGE_GIF = 'image/gif';
     APPLICATION_PDF = 'application/pdf';
     APPLICATION_X_PDF = 'application/x-pdf';
     WILDCARD = '*/*';
@@ -118,7 +120,7 @@ type
     OneMiB = 1048576;
     OneKiB = 1024;
     DEFAULT_MAX_REQUEST_SIZE = OneMiB * 5; // 5 MiB
-    HATEOAS_PROP_NAME = '_links';
+    HATEOAS_PROP_NAME = 'links';
     X_HTTP_Method_Override = 'X-HTTP-Method-Override';
   end;
 
@@ -141,22 +143,19 @@ type
   TMVCConfigKey = record
   public const
     SessionTimeout = 'sessiontimeout';
-    DocumentRoot = 'document_root';
     ViewPath = 'view_path';
     DefaultContentType = 'default_content_type';
     DefaultContentCharset = 'default_content_charset';
     DefaultViewFileExtension = 'default_view_file_extension';
-    // ISAPIPath = 'isapi_path';
     PathPrefix = 'pathprefix';
     AllowUnhandledAction = 'allow_unhandled_action';
     ServerName = 'server_name';
     ExposeServerSignature = 'server_signature';
-    IndexDocument = 'index_document';
     SessionType = 'session_type';
-    FallbackResource = 'fallback_resource';
     MaxEntitiesRecordCount = 'max_entities_record_count';
     MaxRequestSize = 'max_request_size'; // bytes
     HATEOSPropertyName = 'hateos';
+    LoadSystemControllers = 'load_system_controllers';
   end;
 
   // http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html
@@ -411,6 +410,8 @@ type
     { public declarations }
   end;
 
+  TMVCStringDictionaryList = class;
+
   TMVCRequestParamsTable = class(TDictionary<string, string>)
   private
     { private declarations }
@@ -418,32 +419,6 @@ type
     { protected declarations }
   public
     { public declarations }
-  end;
-
-  TMVCStringDictionary = class
-  strict private
-    function GetItems(const Key: string): string;
-    procedure SetItems(const Key, Value: string);
-  protected
-    FDict: TDictionary<string, string>;
-  public
-    constructor Create; overload; virtual;
-    constructor Create(const aKey, aValue: string); overload; virtual;
-    destructor Destroy; override;
-    procedure Clear;
-    function Add(const Name, Value: string): TMVCStringDictionary;
-    function TryGetValue(const Name: string; out Value: string): Boolean; overload;
-    function TryGetValue(const Name: string; out Value: Integer): Boolean; overload;
-    function Count: Integer;
-    function GetEnumerator: TDictionary<string, string>.TPairEnumerator;
-    function ContainsKey(const Key: string): Boolean;
-    function Keys: TArray<string>;
-    property Items[const Key: string]: string read GetItems write SetItems; default;
-  end;
-
-  TMVCStringDictionaryList = class(TObjectList<TMVCStringDictionary>)
-  public
-    constructor Create;
   end;
 
   IMVCLinkItem = interface
@@ -470,6 +445,42 @@ type
     function LinksData: TMVCStringDictionaryList;
   end;
 
+//  IMVCStringDictionary = interface
+//    ['{164117AD-8DDD-47F7-877C-453979707D10}']
+//    function GetItems(const Key: string): string;
+//    procedure SetItems(const Key, Value: string);
+//    procedure Clear;
+////    function Add(const Name, Value: string): IMVCStringDictionary;
+//    function TryGetValue(const Name: string; out Value: string): Boolean; overload;
+//    function TryGetValue(const Name: string; out Value: Integer): Boolean; overload;
+//    function Count: Integer;
+//    function GetEnumerator: TDictionary<string, string>.TPairEnumerator;
+//    function ContainsKey(const Key: string): Boolean;
+//    function Keys: TArray<string>;
+//    property Items[const Key: string]: string read GetItems; default;
+//  end;
+
+  TMVCStringDictionary = class //(TInterfacedObject, IMVCStringDictionary)
+  strict private
+    function GetItems(const Key: string): string;
+    procedure SetItems(const Key, Value: string);
+  protected
+    fDict: TDictionary<string, string>;
+  public
+    constructor Create; overload; virtual;
+    constructor Create(const aKey, aValue: string); overload; virtual;
+    destructor Destroy; override;
+    procedure Clear;
+    function Add(const Name, Value: string): TMVCStringDictionary;
+    function TryGetValue(const Name: string; out Value: string): Boolean; overload;
+    function TryGetValue(const Name: string; out Value: Integer): Boolean; overload;
+    function Count: Integer;
+    function GetEnumerator: TDictionary<string, string>.TPairEnumerator;
+    function ContainsKey(const Key: string): Boolean;
+    function Keys: TArray<string>;
+    property Items[const Key: string]: string read GetItems write SetItems; default;
+  end;
+
   TMVCDecoratorObject = class(TInterfacedObject, IMVCLinkItem)
   private
     fData: TMVCStringDictionary;
@@ -478,12 +489,17 @@ type
     function Add(const PropName: string; const PropValue: string): IMVCLinkItem;
   end;
 
+  TMVCStringDictionaryList = class(TObjectList<TMVCStringDictionary>)
+  public
+    constructor Create;
+  end;
+
   { This type is thread safe }
   TMVCStringObjectDictionary<T: class> = class
   private
     FMREWS: TMultiReadExclusiveWriteSynchronizer;
   protected
-    FDict: TObjectDictionary<string, T>;
+    fDict: TObjectDictionary<string, T>;
   public
     constructor Create; virtual;
     destructor Destroy; override;
@@ -500,7 +516,7 @@ type
     constructor Create;
   end;
 
-  TMVCViewDataSet = class(TObjectDictionary<string, TDataSet>)
+  TMVCViewDataSet = class(TObjectDictionary<string, TDataset>)
   private
     { private declarations }
   protected
@@ -563,7 +579,6 @@ type
     class function GuidFromString(const AGuidStr: string): TGUID; static;
   end;
 
-
   TMVCFieldsMapping = TArray<TMVCFieldMap>;
 
 {$SCOPEDENUMS ON}
@@ -591,17 +606,15 @@ procedure SplitContentMediaTypeAndCharset(const aContentType: string; var aConte
   var aContentCharSet: string);
 function BuildContentType(const aContentMediaType: string; const aContentCharSet: string): string;
 
-function StrDict: TMVCStringDictionary; overload;
-function StrDict(const aKeys: array of string; const aValues: array of string)
-  : TMVCStringDictionary; overload;
+{ changing case }
+function CamelCase(const Value: string; const MakeFirstUpperToo: Boolean = False): string;
 
 const
   MVC_HTTP_METHODS_WITHOUT_CONTENT: TMVCHTTPMethods = [httpGET, httpDELETE, httpHEAD, httpOPTIONS];
   MVC_HTTP_METHODS_WITH_CONTENT: TMVCHTTPMethods = [httpPOST, httpPUT, httpPATCH];
 
 const
-  MVC_COMPRESSION_TYPE_AS_STRING: array [TMVCCompressionType] of string = ('none',
-    'deflate', 'gzip');
+  MVC_COMPRESSION_TYPE_AS_STRING: array [TMVCCompressionType] of string = ('none', 'deflate', 'gzip');
   MVC_COMPRESSION_ZLIB_WINDOW_BITS: array [TMVCCompressionType] of Integer = (0, -15, 31);
   // WindowBits: http://zlib.net/manual.html#Advanced
 
@@ -629,8 +642,7 @@ implementation
 uses
   IdCoder3to4,
   System.NetEncoding,
-  MVCFramework.Serializer.JsonDataObjects,
-  MVCFramework.Serializer.Commons;
+  MVCFramework.Serializer.JsonDataObjects, MVCFramework.Serializer.Commons;
 
 var
   GlobalAppName, GlobalAppPath, GlobalAppExe: string;
@@ -929,23 +941,23 @@ end;
 
 function TMVCStringDictionary.Add(const Name, Value: string): TMVCStringDictionary;
 begin
-  FDict.AddOrSetValue(name, Value);
+  fDict.AddOrSetValue(name, Value);
   Result := Self;
 end;
 
 procedure TMVCStringDictionary.Clear;
 begin
-  FDict.Clear;
+  fDict.Clear;
 end;
 
 function TMVCStringDictionary.ContainsKey(const Key: string): Boolean;
 begin
-  Result := FDict.ContainsKey(Key);
+  Result := fDict.ContainsKey(Key);
 end;
 
 function TMVCStringDictionary.Count: Integer;
 begin
-  Result := FDict.Count;
+  Result := fDict.Count;
 end;
 
 constructor TMVCStringDictionary.Create(const aKey, aValue: string);
@@ -957,34 +969,34 @@ end;
 constructor TMVCStringDictionary.Create;
 begin
   inherited;
-  FDict := TDictionary<string, string>.Create;
+  fDict := TDictionary<string, string>.Create;
 end;
 
 destructor TMVCStringDictionary.Destroy;
 begin
-  FDict.Free;
+  fDict.Free;
   inherited;
 end;
 
 function TMVCStringDictionary.GetEnumerator: TDictionary<string, string>.TPairEnumerator;
 begin
-  Result := FDict.GetEnumerator;
+  Result := fDict.GetEnumerator;
 end;
 
 function TMVCStringDictionary.GetItems(const Key: string): string;
 begin
   Result := '';
-  FDict.TryGetValue(Key, Result);
+  fDict.TryGetValue(Key, Result);
 end;
 
 function TMVCStringDictionary.Keys: TArray<string>;
 begin
-  Result := FDict.Keys.ToArray;
+  Result := fDict.Keys.ToArray;
 end;
 
 procedure TMVCStringDictionary.SetItems(const Key, Value: string);
 begin
-  FDict.AddOrSetValue(Key, Value);
+  fDict.AddOrSetValue(Key, Value);
 end;
 
 function TMVCStringDictionary.TryGetValue(const Name: string; out Value: Integer): Boolean;
@@ -996,7 +1008,7 @@ end;
 
 function TMVCStringDictionary.TryGetValue(const Name: string; out Value: string): Boolean;
 begin
-  Result := FDict.TryGetValue(name, Value);
+  Result := fDict.TryGetValue(name, Value);
 end;
 
 { TMVCStringObjectDictionary }
@@ -1005,8 +1017,8 @@ procedure TMVCStringObjectDictionary<T>.Add(const Name: string; Value: T);
 begin
   FMREWS.BeginWrite;
   try
-    if not FDict.ContainsKey(name) then
-      FDict.Add(name, Value);
+    if not fDict.ContainsKey(name) then
+      fDict.Add(name, Value);
   finally
     FMREWS.EndWrite;
   end;
@@ -1015,13 +1027,13 @@ end;
 constructor TMVCStringObjectDictionary<T>.Create;
 begin
   inherited;
-  FDict := TObjectDictionary<string, T>.Create([doOwnsValues]);
+  fDict := TObjectDictionary<string, T>.Create([doOwnsValues]);
   FMREWS := TMultiReadExclusiveWriteSynchronizer.Create;
 end;
 
 destructor TMVCStringObjectDictionary<T>.Destroy;
 begin
-  FDict.Free;
+  fDict.Free;
   FMREWS.Free;
   inherited;
 end;
@@ -1030,7 +1042,7 @@ function TMVCStringObjectDictionary<T>.TryGetValue(const Name: string; out Value
 begin
   FMREWS.BeginRead;
   try
-    Result := FDict.TryGetValue(name, Value);
+    Result := fDict.TryGetValue(name, Value);
   finally
     FMREWS.EndRead;
   end;
@@ -1162,28 +1174,6 @@ begin
   Self.WriteBuffer(UFTStr[low(UFTStr)], Length(UFTStr));
 end;
 
-function StrDict: TMVCStringDictionary; overload;
-begin
-  Result := TMVCStringDictionary.Create;
-end;
-
-function StrDict(const aKeys: array of string; const aValues: array of string)
-  : TMVCStringDictionary; overload;
-var
-  I: Integer;
-begin
-  if Length(aKeys) <> Length(aValues) then
-  begin
-    raise EMVCException.CreateFmt('Dict error. Got %d keys but %d values',
-      [Length(aKeys), Length(aValues)]);
-  end;
-  Result := StrDict();
-  for I := low(aKeys) to high(aKeys) do
-  begin
-    Result.Add(aKeys[I], aValues[I]);
-  end;
-end;
-
 { TMVCDecorator }
 
 function TMVCLinks.AddRefLink: IMVCLinkItem;
@@ -1302,7 +1292,7 @@ end;
 
 class function TMVCGuidHelper.GuidFromString(const AGuidStr: string): TGUID;
 var
-    LGuidStr: string;
+  LGuidStr: string;
 begin
   if AGuidStr.Length = 32 then { string uuid without braces and dashes: ae502abe430bb23a28782d18d6a6e465 }
   begin
@@ -1319,6 +1309,59 @@ begin
   end;
 
   Result := StringToGUID(LGuidStr);
+end;
+
+function CamelCase(const Value: string; const MakeFirstUpperToo: Boolean): string;
+var
+  I: Integer;
+  lNextUpCase: Boolean;
+  lSB: TStringBuilder;
+  C: Char;
+  lIsLowerCase: Boolean;
+  lIsUpperCase, lPreviousWasUpperCase: Boolean;
+  lIsAlpha: Boolean;
+begin
+  lNextUpCase := MakeFirstUpperToo;
+  lPreviousWasUpperCase := True;
+  lSB := TStringBuilder.Create;
+  try
+    for I := 0 to Length(Value) - 1 do
+    begin
+      C := Value.Chars[I];
+      lIsLowerCase := CharInSet(C, ['a' .. 'z']);
+      lIsUpperCase := CharInSet(C, ['A' .. 'Z']);
+      lIsAlpha := lIsLowerCase or lIsUpperCase;
+      if not lIsAlpha then
+      begin
+        lNextUpCase := True;
+        lPreviousWasUpperCase := False;
+        Continue;
+      end
+      else
+      begin
+        if lNextUpCase then
+        begin
+          lNextUpCase := False;
+          lSB.Append(UpCase(C));
+        end
+        else
+        begin
+          if lPreviousWasUpperCase then
+          begin
+            lSB.Append(LowerCase(C));
+          end
+          else
+          begin
+            lSB.Append(C);
+          end;
+        end;
+      end;
+      lPreviousWasUpperCase := lIsUpperCase;
+    end;
+    Result := lSB.ToString;
+  finally
+    lSB.Free;
+  end;
 end;
 
 initialization

@@ -123,6 +123,8 @@ type
     [Test]
     procedure TestRenderStreamAndFreeWithOwnerTrue;
     [Test]
+    procedure TestObjectDict;
+    [Test]
     procedure TestGetImagePng;
     [Test]
     procedure TestProducesConsumes01;
@@ -202,6 +204,10 @@ type
     procedure TestDeserializeNullablesWithNulls;
     [Test]
     procedure TestSerializeAndDeserializeNullables;
+    [Test]
+    procedure TestSerializeAndDeserializeNullables_ISSUE_362;
+    [Test]
+    procedure TestSerializeAndDeserializeNullables_Passing_Integers_InsteadOf_Floats;
 
     // test responses objects
     [Test]
@@ -214,7 +220,10 @@ type
     // test web server
     [Test]
     procedure TestDirectoryTraversal1;
-
+    [Test]
+    procedure TestDirectoryTraversal2;
+    [Test]
+    procedure TestSPASupport;
     // test server side views
     [Test]
     procedure TestViewDataViewDataSet;
@@ -236,9 +245,17 @@ type
     [Test]
     procedure TestRequestWithParams_I_I_ret_I;
     [Test]
+    procedure TestRequestWithNamedParams_I_I_ret_I;
+    [Test]
     procedure TestRequestWithParams_I_I_I_ret_O;
     [Test]
+    procedure TestRequestWithNamedParams_I_I_I_ret_O;
+    [Test]
+    procedure TestRequestWithWrongNamedParams;
+    [Test]
     procedure TestRequest_S_I_ret_S;
+    [Test]
+    procedure TestRequest_NamedParams_S_I_ret_S;
     [Test]
     procedure TestRequestWithParams_I_I_ret_A;
     [Test]
@@ -949,6 +966,54 @@ begin
   Assert.AreNotEqual('', r.HeaderValue('request_gen_time'));
 end;
 
+procedure TServerTest.TestObjectDict;
+var
+  lRes: IRESTResponse;
+  lJSON: TJSONObject;
+begin
+  lRes := RESTClient.doGET('/objectdict', []);
+  Assert.areEqual<Integer>(HTTP_STATUS.OK, lRes.ResponseCode, lRes.BodyAsString);
+  lJSON := StrToJSONObject(lRes.BodyAsString);
+  try
+    Assert.isTrue(lJSON.Contains('ncCamelCase_Single'), lJSON.ToJSON());
+    Assert.isTrue(lJSON.Contains('ncLowerCase_Single'), lJSON.ToJSON());
+    Assert.isTrue(lJSON.Contains('ncPascalCase_Single'), lJSON.ToJSON());
+    Assert.isTrue(lJSON.Contains('ncUpperCase_Single'), lJSON.ToJSON());
+
+    Assert.isTrue(lJSON.Contains('ncCamelCase_List'), lJSON.ToJSON());
+    Assert.isTrue(lJSON.Contains('ncLowerCase_List'), lJSON.ToJSON());
+    Assert.isTrue(lJSON.Contains('ncPascalCase_List'), lJSON.ToJSON());
+    Assert.isTrue(lJSON.Contains('ncUpperCase_List'), lJSON.ToJSON());
+
+    Assert.areEqual(jdtObject, lJSON.Types['ncCamelCase_Single']);
+    Assert.areEqual(jdtObject, lJSON.Types['ncLowerCase_Single']);
+    Assert.areEqual(jdtObject, lJSON.Types['ncPascalCase_Single']);
+    Assert.areEqual(jdtObject, lJSON.Types['ncUpperCase_Single']);
+
+    Assert.isTrue(lJSON.O['ncCamelCase_Single'].Contains('custNo'), lJSON.O['ncCamelCase_Single'].ToJSON());
+    Assert.isTrue(lJSON.O['ncLowerCase_Single'].Contains('cust_no'), lJSON.O['ncLowerCase_Single'].ToJSON());
+    Assert.isTrue(lJSON.O['ncPascalCase_Single'].Contains('CustNo'), lJSON.O['ncPascalCase_Single'].ToJSON());
+    Assert.isTrue(lJSON.O['ncUpperCase_Single'].Contains('CUST_NO'), lJSON.O['ncUpperCase_Single'].ToJSON());
+
+    Assert.areEqual(jdtArray, lJSON.Types['ncCamelCase_List']);
+    Assert.areEqual(jdtArray, lJSON.Types['ncLowerCase_List']);
+    Assert.areEqual(jdtArray, lJSON.Types['ncPascalCase_List']);
+    Assert.areEqual(jdtArray, lJSON.Types['ncUpperCase_List']);
+
+    Assert.isTrue(lJSON.A['ncCamelCase_List'][0].ObjectValue.Contains('custNo'),
+      lJSON.A['ncCamelCase_List'][0].ObjectValue.ToJSON());
+    Assert.isTrue(lJSON.A['ncLowerCase_List'][0].ObjectValue.Contains('cust_no'),
+      lJSON.A['ncLowerCase_List'][0].ObjectValue.ToJSON());
+    Assert.isTrue(lJSON.A['ncPascalCase_List'][0].ObjectValue.Contains('CustNo'),
+      lJSON.A['ncPascalCase_List'][0].ObjectValue.ToJSON());
+    Assert.isTrue(lJSON.A['ncUpperCase_List'][0].ObjectValue.Contains('CUST_NO'),
+      lJSON.A['ncUpperCase_List'][0].ObjectValue.ToJSON());
+
+  finally
+    lJSON.Free;
+  end;
+end;
+
 // procedure TServerTest.TestPATCHWithParamsAndJSONBody;
 // var
 // r: IRESTResponse;
@@ -1354,6 +1419,53 @@ begin
   end;
 end;
 
+procedure TServerTest.TestDirectoryTraversal2;
+var
+  lRes: IRESTResponse;
+  I: Integer;
+  lUrl: string;
+begin
+  lRes := RESTClient
+    .Accept(TMVCMediaType.TEXT_HTML)
+    .doGET('/static/index.html', []);
+  Assert.areEqual(200, lRes.ResponseCode, '/static/index.html');
+
+  lRes := RESTClient
+    .Accept(TMVCMediaType.TEXT_HTML)
+    .doGET('/static.html', []);
+  Assert.areEqual(200, lRes.ResponseCode, '/static.html');
+
+  lRes := RESTClient
+    .Accept(TMVCMediaType.TEXT_HTML)
+    .doGET('/static/', []);
+  Assert.areEqual(200, lRes.ResponseCode, '/static/');
+
+  lRes := RESTClient
+    .Accept(TMVCMediaType.TEXT_HTML)
+    .doGET('/static', []);
+  Assert.areEqual(200, lRes.ResponseCode, '/static');
+
+  lRes := RESTClient
+    .Accept(TMVCMediaType.TEXT_HTML)
+    .doGET('/static/..\..\donotdeleteme.txt', []);
+  Assert.areEqual(404, lRes.ResponseCode);
+
+  lRes := RESTClient
+    .Accept(TMVCMediaType.TEXT_HTML)
+    .doGET('/static/../../donotdeleteme.txt', []);
+  Assert.areEqual(404, lRes.ResponseCode);
+
+  lUrl := 'Windows\win.ini';
+  for I := 1 to 30 do
+  begin
+    lUrl := '..\' + lUrl;
+    lRes := RESTClient
+      .Accept(TMVCMediaType.TEXT_HTML)
+      .doGET('/' + lUrl, []);
+    Assert.areEqual(404, lRes.ResponseCode, 'Fail with: ' + '/' + lUrl);
+  end;
+end;
+
 procedure TServerTest.TestSerializeAndDeserializeNullables;
 var
   lRes: IRESTResponse;
@@ -1387,6 +1499,65 @@ begin
       Assert.areEqual(98765.4321, lNullableTest.f_currency.Value, 0);
       { TODO -oDanieleT -cGeneral : Compare streams too }
       // Assert.AreEqual('0123456789', lNullableTest.f_blob.Value, 0);
+    finally
+      lNullableTest.Free;
+    end;
+  finally
+    lSer.Free;
+  end;
+end;
+
+procedure TServerTest.TestSerializeAndDeserializeNullables_ISSUE_362;
+const
+  JSON1: string = '{"f_int2":2,"f_int4":4,"f_int8":8,"f_string":"0123456789","f_bool":true, ' +
+    '"f_date":"2011-11-17","f_time":"12:24:36","f_datetime":"2011-11-17T12:24:36.048Z",' +
+    '"f_float4":2.5,"f_float8":1.25,"f_currency":98765.4321,"f_blob":"0123456789"}';
+  JSON2: string = '{"f_int2":2,"f_int4":4,"f_int8":8,"f_string":"0123456789","f_bool":true, ' +
+    '"f_date":"2011-11-17","f_time":"12:24:36","f_datetime":"2011-11-17T12:24:36.048Z",' +
+    '"f_float4":2,"f_float8":3,"f_currency":4,"f_blob":"0123456789"}';
+var
+  lSer: TMVCJsonDataObjectsSerializer;
+  lNullableTest: TNullablesTest;
+begin
+  lSer := TMVCJsonDataObjectsSerializer.Create;
+  try
+    lNullableTest := TNullablesTest.Create();
+    try
+      lSer.DeserializeObject(JSON1, lNullableTest);
+    finally
+      lNullableTest.Free;
+    end;
+    lNullableTest := TNullablesTest.Create();
+    try
+      { in this case nullable floats type actually contains integers... }
+      lSer.DeserializeObject(JSON2, lNullableTest);
+    finally
+      lNullableTest.Free;
+    end;
+    Assert.Pass();
+  finally
+    lSer.Free;
+  end;
+end;
+
+procedure TServerTest.TestSerializeAndDeserializeNullables_Passing_Integers_InsteadOf_Floats;
+const
+  JSON1: string = '{"f_int2":2,"f_int4":4,"f_int8":8,"f_string":"0123456789","f_bool":true, ' +
+    '"f_date":"2011-11-17","f_time":"12:24:36","f_datetime":"2011-11-17T12:24:36.048Z",' +
+    '"f_float4_not_null":1234,"f_float8_not_null":2345, ' +
+    '"f_float4":2.5,"f_float8":1.25,"f_currency":98765.4321,"f_blob":"0123456789"}';
+var
+  lSer: TMVCJsonDataObjectsSerializer;
+  lNullableTest: TNullablesTest;
+begin
+  lSer := TMVCJsonDataObjectsSerializer.Create;
+  try
+    lNullableTest := TNullablesTest.Create();
+    try
+      { in this case not nullable floats type actually contains integers... }
+      lSer.DeserializeObject(JSON1, lNullableTest);
+      Assert.areEqual(1234, lNullableTest.f_float4_not_null, 0.0001);
+      Assert.areEqual(2345, lNullableTest.f_float8_not_null, 0.0001);
     finally
       lNullableTest.Free;
     end;
@@ -1429,6 +1600,46 @@ procedure TServerTest.TestSessionWithLogin;
 begin
   DoLoginWith('daniele');
   DoLogout;
+end;
+
+procedure TServerTest.TestSPASupport;
+var
+  lRes: IRESTResponse;
+  I: Integer;
+  lUrl: string;
+begin
+  lRes := RESTClient
+    .Accept(TMVCMediaType.TEXT_HTML)
+    .doGET('/static/index.html', []);
+  Assert.areEqual(200, lRes.ResponseCode);
+  Assert.Contains(lRes.BodyAsString, 'This is a TEXT file');
+
+  lRes := RESTClient
+    .Accept(TMVCMediaType.TEXT_HTML)
+    .doGET('/static/', []);
+  Assert.areEqual(200, lRes.ResponseCode, '/static/');
+  Assert.Contains(lRes.BodyAsString, 'This is a TEXT file');
+
+  lRes := RESTClient
+    .Accept(TMVCMediaType.TEXT_HTML)
+    .doGET('/static/..\..\donotdeleteme.txt', []);
+  Assert.areEqual(404, lRes.ResponseCode, '/static/..\..\donotdeleteme.txt');
+
+  lRes := RESTClient
+    .Accept(TMVCMediaType.TEXT_HTML)
+    .doGET('/static/../../donotdeleteme.txt', []);
+  Assert.areEqual(404, lRes.ResponseCode, '/static/../../donotdeleteme.txt');
+  Assert.Contains(lRes.Error.ExceptionMessage, 'Not Found', true);
+
+  lUrl := 'Windows\win.ini';
+  for I := 1 to 30 do
+  begin
+    lUrl := '..\' + lUrl;
+    lRes := RESTClient
+      .Accept(TMVCMediaType.TEXT_HTML)
+      .doGET('/' + lUrl, []);
+    Assert.areEqual(404, lRes.ResponseCode, 'Fail with: ' + '/' + lUrl);
+  end;
 end;
 
 procedure TServerTest.TestStringDictionary;
@@ -1613,21 +1824,23 @@ var
   lRes: IRESTResponse;
 begin
   lRes := RESTClient.Accept(TMVCMediaType.TEXT_PLAIN).doGET('/website/list', []);
-  var lLines := lRes.BodyAsString.Split([sLineBreak]);
+  Assert.areEqual(HTTP_STATUS.OK, lRes.ResponseCode, lRes.BodyAsString);
+  var
+  lLines := lRes.BodyAsString.Split([sLineBreak]);
   var lCount: Integer := 1001;
   for var lLine in lLines do
   begin
-    var lLinePieces := lLine.Split(['|']);
+    var
+    lLinePieces := lLine.Split(['|']);
     if Length(lLinePieces) = 1 then
     begin
       lCount := 1001;
       Continue;
     end;
-    Assert.AreEqual(9, Length(lLinePieces));
-    Assert.AreEqual(lCount, lLinePieces[0].ToInteger);
+    Assert.areEqual(9, Length(lLinePieces));
+    Assert.areEqual(lCount, lLinePieces[0].ToInteger);
     Inc(lCount);
   end;
-  Assert.areEqual(HTTP_STATUS.OK, lRes.ResponseCode);
 end;
 
 procedure TServerTest.TestWrongJSONBody;
@@ -1738,6 +1951,65 @@ begin
   Assert.areEqual(2000, lYear);
 end;
 
+procedure TJSONRPCServerTest.TestRequestWithWrongNamedParams;
+var
+  lReq: IJSONRPCRequest;
+  lRPCResp: IJSONRPCResponse;
+begin
+  lReq := TJSONRPCRequest.Create;
+  lReq.Method := 'add';
+  lReq.Params.AddByName('wrongname1', 3);
+  lReq.Params.AddByName('wrongname2', 4);
+  lReq.Params.AddByName('wrongname3', 5);
+  lReq.RequestID := 1234;
+
+  lRPCResp := FExecutor.ExecuteRequest(lReq);
+  Assert.isTrue(lRPCResp.IsError);
+  Assert.Contains(lRPCResp.Error.ErrMessage, 'cannot map all parameter', true);
+end;
+
+procedure TJSONRPCServerTest.TestRequestWithNamedParams_I_I_I_ret_O;
+var
+  lReq: IJSONRPCRequest;
+  lRPCResp: IJSONRPCResponse;
+  lS: string;
+begin
+  lReq := TJSONRPCRequest.Create;
+  lReq.Method := 'add';
+  lReq.Params.AddByName('value1', 3);
+  lReq.Params.AddByName('value2', 4);
+  lReq.Params.AddByName('value3', 5);
+  lReq.RequestID := 1234;
+
+  lRPCResp := FExecutor.ExecuteRequest(lReq);
+  lS := (lRPCResp.Result.AsObject as TJDOJsonObject).ToJSON();
+  Assert.areEqual(12, TJDOJsonObject(lRPCResp.Result.AsObject).I['res']);
+
+  lRPCResp := FExecutor2.ExecuteRequest(lReq);
+  lS := (lRPCResp.Result.AsObject as TJDOJsonObject).ToJSON();
+  Assert.areEqual(12, TJDOJsonObject(lRPCResp.Result.AsObject).I['res']);
+end;
+
+procedure TJSONRPCServerTest.TestRequestWithNamedParams_I_I_ret_I;
+var
+  lReq: IJSONRPCRequest;
+  lResp: IJSONRPCResponse;
+begin
+  lReq := TJSONRPCRequest.Create;
+  lReq.RequestID := 1234;
+  lReq.Method := 'subtract';
+  lReq.Params.AddByName('Value1', 18);
+  lReq.Params.AddByName('Value2', 8);
+
+  lResp := FExecutor.ExecuteRequest(lReq);
+  Assert.areEqual(10, lResp.Result.AsInteger);
+  Assert.areEqual(1234, lResp.RequestID.AsInteger);
+
+  lResp := FExecutor2.ExecuteRequest(lReq);
+  Assert.areEqual(10, lResp.Result.AsInteger);
+  Assert.areEqual(1234, lResp.RequestID.AsInteger);
+end;
+
 procedure TJSONRPCServerTest.TestRequestWithoutParams;
 var
   lReq: IJSONRPCNotification;
@@ -1759,6 +2031,7 @@ begin
   lReq.Method := 'subtract';
   lReq.Params.Add(18);
   lReq.Params.Add(8);
+
   lResp := FExecutor.ExecuteRequest(lReq);
   Assert.areEqual(10, lResp.Result.AsInteger);
   Assert.areEqual(1234, lResp.RequestID.AsInteger);
@@ -1822,6 +2095,24 @@ begin
   lRPCResp := FExecutor2.ExecuteRequest(lReq);
   lS := (lRPCResp.Result.AsObject as TJDOJsonObject).ToJSON();
   Assert.areEqual(12, TJDOJsonObject(lRPCResp.Result.AsObject).I['res']);
+end;
+
+procedure TJSONRPCServerTest.TestRequest_NamedParams_S_I_ret_S;
+var
+  lReq: IJSONRPCRequest;
+  lRPCResp: IJSONRPCResponse;
+begin
+  lReq := TJSONRPCRequest.Create;
+  lReq.Method := 'MultiplyString';
+  lReq.Params.AddByName('aString', 'Daniele');
+  lReq.Params.AddByName('Multiplier', 4);
+  lReq.RequestID := 1234;
+  lRPCResp := FExecutor.ExecuteRequest(lReq);
+  Assert.isFalse(lRPCResp.IsError);
+  Assert.areEqual('DanieleDanieleDanieleDaniele', lRPCResp.Result.AsString);
+
+  lRPCResp := FExecutor2.ExecuteRequest(lReq);
+  Assert.areEqual('DanieleDanieleDanieleDaniele', lRPCResp.Result.AsString);
 end;
 
 procedure TJSONRPCServerTest.TestRequest_S_I_ret_S;

@@ -60,6 +60,7 @@ type
     procedure OnBeforeControllerAction(AContext: TWebContext; const AControllerQualifiedClassName: string;
       const AActionName: string; var AHandled: Boolean);
     procedure OnAfterControllerAction(AContext: TWebContext; const AActionName: string; const AHandled: Boolean);
+    procedure OnAfterRouting(AContext: TWebContext; const AHandled: Boolean);
   end;
 
 implementation
@@ -310,13 +311,18 @@ end;
 procedure TMVCSwaggerMiddleware.OnAfterControllerAction(AContext: TWebContext; const AActionName: string;
   const AHandled: Boolean);
 begin
-  //
+  // do nothing
+end;
+
+procedure TMVCSwaggerMiddleware.OnAfterRouting(AContext: TWebContext; const AHandled: Boolean);
+begin
+  // do nothing
 end;
 
 procedure TMVCSwaggerMiddleware.OnBeforeControllerAction(AContext: TWebContext;
   const AControllerQualifiedClassName, AActionName: string; var AHandled: Boolean);
 begin
-  //
+  // do nothing
 end;
 
 procedure TMVCSwaggerMiddleware.OnBeforeRouting(AContext: TWebContext; var AHandled: Boolean);
@@ -353,7 +359,15 @@ begin
   lPathComparer := TDelegatedComparer<TSwagPath>.Create(
   function(const Left, Right: TSwagPath): Integer
   begin
-    Result := CompareText(Left.Operations[0].Tags[0], Right.Operations[0].Tags[0]);
+    if SameText(Left.Operations[0].Tags[0], JWT_AUTHENTICATION_TAG) or
+      SameText(Right.Operations[0].Tags[0], JWT_AUTHENTICATION_TAG) then
+    begin
+      Result := -1;
+    end
+    else
+    begin
+      Result := CompareText(Left.Operations[0].Tags[0], Right.Operations[0].Tags[0]);
+    end;
   end);
 
   ASwagDoc.Paths.Sort(lPathComparer);

@@ -44,6 +44,8 @@ type
     [Test]
     procedure TestCRUD;
     [Test]
+    procedure TestCRUDWithTableChange;
+    [Test]
     procedure TestCRUDStringPK;
     [Test]
     procedure TestSelectWithExceptions;
@@ -106,6 +108,8 @@ begin
     lCustomer.CompanyName := 'bit Time Professionals';
     lCustomer.City := 'Rome, IT';
     lCustomer.Note := 'note1';
+    lCustomer.CreationTime := Time;
+    lCustomer.CreationDate := Date;
     lCustomer.ID := -1; { don't be fooled by the default! }
     lCustomer.Insert;
     lID := lCustomer.ID;
@@ -118,9 +122,13 @@ begin
   try
     Assert.IsFalse(lCustomer.Code.HasValue);
     Assert.IsFalse(lCustomer.Rating.HasValue);
+    Assert.IsTrue(lCustomer.CreationTime.HasValue);
+    Assert.IsTrue(lCustomer.CreationDate.HasValue);
     lCustomer.Code := '1234';
     lCustomer.Rating := 3;
     lCustomer.Note := lCustomer.Note + 'noteupdated';
+    lCustomer.CreationTime.Clear;
+    lCustomer.CreationDate.Clear;
     lCustomer.Update;
   finally
     lCustomer.Free;
@@ -134,6 +142,8 @@ begin
     Assert.AreEqual('bit Time Professionals', lCustomer.CompanyName.Value);
     Assert.AreEqual('Rome, IT', lCustomer.City);
     Assert.AreEqual(1, lCustomer.ID);
+    Assert.IsFalse(lCustomer.CreationTime.HasValue);
+    Assert.IsFalse(lCustomer.CreationDate.HasValue);
   finally
     lCustomer.Free;
   end;
@@ -202,6 +212,48 @@ begin
 
   lCustomer := TMVCActiveRecord.GetOneByWhere<TCustomerWithCode>('code = ?', ['1000'], [ftString], False);
   Assert.IsNull(lCustomer);
+end;
+
+procedure TTestActiveRecord.TestCRUDWithTableChange;
+var
+  lCustomer: TCustomer;
+  lID: Integer;
+begin
+  Assert.AreEqual(Int64(0), TMVCActiveRecord.Count<TCustomer>());
+  lCustomer := TCustomer.Create;
+  try
+    lCustomer.CompanyName := 'bit Time Professionals';
+    lCustomer.City := 'Rome, IT';
+    lCustomer.Note := 'note1';
+    lCustomer.CreationTime := Time;
+    lCustomer.CreationDate := Date;
+    lCustomer.ID := -1; { don't be fooled by the default! }
+    lCustomer.Insert;
+    lID := lCustomer.ID;
+    Assert.AreEqual(1, lID);
+  finally
+    lCustomer.Free;
+  end;
+
+  //the same changing tablename
+
+  lCustomer := TCustomer.Create;
+  try
+    Assert.AreEqual('customers', lCustomer.TableName);
+    lCustomer.TableName := 'customers2';
+    lCustomer.CompanyName := 'bit Time Professionals';
+    lCustomer.City := 'Rome, IT';
+    lCustomer.Note := 'note1';
+    lCustomer.CreationTime := Time;
+    lCustomer.CreationDate := Date;
+    lCustomer.ID := -1; { don't be fooled by the default! }
+    lCustomer.Insert;
+    lID := lCustomer.ID;
+    Assert.AreEqual(1, lID);
+    Assert.IsTrue(lCustomer.LoadByPK(lID));
+  finally
+    lCustomer.Free;
+  end;
 end;
 
 procedure TTestActiveRecord.TestLifeCycle;

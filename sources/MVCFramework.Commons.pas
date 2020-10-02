@@ -40,6 +40,7 @@ uses
   IdCoderMIME,
   IdContext,
   System.Generics.Collections,
+  MVCFramework.DuckTyping,
   JsonDataObjects;
 
 {$I dmvcframeworkbuildconsts.inc}
@@ -122,6 +123,7 @@ type
     DEFAULT_MAX_REQUEST_SIZE = OneMiB * 5; // 5 MiB
     HATEOAS_PROP_NAME = 'links';
     X_HTTP_Method_Override = 'X-HTTP-Method-Override';
+    MAX_RECORD_COUNT = 20;
   end;
 
   HATEOAS = record
@@ -158,6 +160,8 @@ type
     HATEOSPropertyName = 'hateos';
     LoadSystemControllers = 'load_system_controllers';
   end;
+
+  TMVCHostingFrameworkType = (hftUnknown, hftIndy, hftApache, hftISAPI);
 
   // http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html
   HTTP_STATUS = record
@@ -350,12 +354,14 @@ type
     FHttpErrorCode: UInt16;
     FAppErrorCode: UInt16;
     FDetailedMessage: string;
+    FErrorItems: TArray<String>;
     procedure CheckHTTPErrorCode(const AHTTPErrorCode: UInt16);
   public
     constructor Create(const AMsg: string); overload; virtual;
     constructor Create(const AMsg: string; const ADetailedMessage: string;
       const AAppErrorCode: UInt16 = 0;
-      const AHTTPErrorCode: UInt16 = HTTP_STATUS.InternalServerError); overload; virtual;
+      const AHTTPErrorCode: UInt16 = HTTP_STATUS.InternalServerError;
+      const AErrorItems: TArray<String> = nil); overload; virtual;
     constructor Create(const AHTTPErrorCode: UInt16; const AMsg: string); overload; virtual;
     constructor Create(const AHTTPErrorCode: UInt16; const AAppErrorCode: Integer; const AMsg: string);
       overload; virtual;
@@ -364,6 +370,7 @@ type
     property HttpErrorCode: UInt16 read FHttpErrorCode;
     property DetailedMessage: string read FDetailedMessage write FDetailedMessage;
     property ApplicationErrorCode: UInt16 read FAppErrorCode write FAppErrorCode;
+    property ErrorItems: TArray<String> read FErrorItems;
   end;
 
   EMVCSessionExpiredException = class(EMVCException)
@@ -614,8 +621,11 @@ function StrToJSONObject(const aString: String): TJsonObject;
 function StrToJSONArray(const aString: String): TJsonArray;
 
 
+function WrapAsList(const AObject: TObject; AOwnsObject: Boolean = False): IMVCList;
+
 { changing case }
 function CamelCase(const Value: string; const MakeFirstUpperToo: Boolean = False): string;
+function SnakeCase(const Value: string): string;
 
 const
   MVC_HTTP_METHODS_WITHOUT_CONTENT: TMVCHTTPMethods = [httpGET, httpDELETE, httpHEAD, httpOPTIONS];
@@ -789,16 +799,21 @@ begin
   FHttpErrorCode := HTTP_STATUS.InternalServerError;
   FDetailedMessage := EmptyStr;
   FAppErrorCode := 0;
+  SetLength(FErrorItems, 0);
 end;
 
 constructor EMVCException.Create(const AMsg, ADetailedMessage: string;
-  const AAppErrorCode, AHTTPErrorCode: UInt16);
+  const AAppErrorCode, AHTTPErrorCode: UInt16; const AErrorItems: TArray<String>);
 begin
   Create(AMsg);
   CheckHTTPErrorCode(AHTTPErrorCode);
   FHttpErrorCode := AHTTPErrorCode;
   FAppErrorCode := AAppErrorCode;
   FDetailedMessage := ADetailedMessage;
+  if AErrorItems <> nil then
+  begin
+    FErrorItems := AErrorItems;
+  end;
 end;
 
 constructor EMVCException.Create(const AHTTPErrorCode: UInt16; const AMsg: string);
@@ -1422,6 +1437,42 @@ begin
   end;
 end;
 
+function SnakeCase(const Value: string): string;
+var
+  I: Integer;
+  lSB: TStringBuilder;
+  C: Char;
+  lIsUpperCase, lIsLowerCase, lLastWasLowercase: Boolean;
+  lCanInsertAnUnderscore: Boolean;
+begin
+  lCanInsertAnUnderscore := False;
+  lLastWasLowercase := False;
+  lSB := TStringBuilder.Create;
+  try
+    for I := 0 to Length(Value) - 1 do
+    begin
+      C := Value.Chars[I];
+      lIsUpperCase := CharInSet(C, ['A' .. 'Z']);
+      lIsLowerCase := CharInSet(C, ['a' .. 'z']);
+      lCanInsertAnUnderscore := lCanInsertAnUnderscore and lLastWasLowercase;
+      if lIsUpperCase and (I > 0) and lCanInsertAnUnderscore then
+      begin
+        lSB.Append('_');
+        lCanInsertAnUnderscore := False;
+      end
+      else
+      begin
+        lCanInsertAnUnderscore := True;
+      end;
+      lSB.Append(LowerCase(C));
+      lLastWasLowercase := lIsLowerCase;
+    end;
+    Result := lSB.ToString;
+  finally
+    lSB.Free;
+  end;
+end;
+
 function StrToJSONObject(const aString: String): TJsonObject;
 begin
   Result := MVCFramework.Serializer.JSONDataObjects.StrToJSONObject(aString);
@@ -1432,6 +1483,11 @@ begin
   Result := MVCFramework.Serializer.JSONDataObjects.StrToJSONArray(aString);
 end;
 
+
+function WrapAsList(const AObject: TObject; AOwnsObject: Boolean = False): IMVCList;
+begin
+  Result := MVCFramework.DuckTyping.WrapAsList(AObject, AOwnsObject);
+end;
 
 initialization
 

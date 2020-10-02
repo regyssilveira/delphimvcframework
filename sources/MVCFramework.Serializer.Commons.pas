@@ -415,6 +415,7 @@ function StrDict(const aKeys: array of string; const aValues: array of string)
 function ObjectDict(const OwnsValues: Boolean = True): IMVCObjectDictionary;
 function GetPaginationMeta(const CurrPageNumber: UInt32; const CurrPageSize: UInt32; const DefaultPageSize: UInt32;
   const URITemplate: string): TMVCStringDictionary;
+procedure RaiseSerializationError(const Msg: string);
 
 implementation
 
@@ -422,6 +423,11 @@ uses
   Data.FmtBcd,
   MVCFramework.Nullables,
   System.Generics.Defaults;
+
+procedure RaiseSerializationError(const Msg: string);
+begin
+  raise EMVCSerializationException.Create(Msg);
+end;
 
 function StrDict: TMVCStringDictionary; overload;
 begin
@@ -736,7 +742,7 @@ var
   Attrs: TArray<TCustomAttribute>;
   Attr: TCustomAttribute;
 begin
-  { TODO -oDanieleT -cGeneral : in un rendering di una lista, quante volte viene chiamata questa funzione?}
+  { TODO -oDanieleT -cGeneral : in un rendering di una lista, quante volte viene chiamata questa funzione? }
   { Tante volte, ma eliminando tutta la logica si guadagnerebbe al massiom il 6% nel caso tipico, forse non vale la pena di aggiungere una cache apposita }
   Result := AProperty.Name;
 
@@ -1006,6 +1012,7 @@ var
   lInternalStream: TStream;
   lSStream: TStringStream;
   lValue: TValue;
+  lStrValue: string;
 {$IF not Defined(TokyoOrBetter)}
   lFieldValue: string;
 {$ENDIF}
@@ -1023,7 +1030,37 @@ begin
   case AField.DataType of
     ftString, ftWideString:
       begin
-        aRTTIField.SetValue(AObject, AField.AsString);
+        // mysql tinytext is identified as string, but raises an Invalid Class Cast
+        // so we need to do some more checks...
+        case aRTTIField.FieldType.TypeKind of
+          tkString, tkUString:
+            begin
+              aRTTIField.SetValue(AObject, AField.AsString);
+            end;
+          tkClass: { mysql - maps a tiny field, identified as string, into a TStream }
+            begin
+              lInternalStream := aRTTIField.GetValue(AObject).AsObject as TStream;
+              if lInternalStream = nil then
+              begin
+                raise EMVCException.CreateFmt
+                  ('Property target for %s field is nil. [HINT] Initialize the stream before load data',
+                  [AField.FieldName]);
+              end;
+              lInternalStream.Size := 0;
+              lStrValue := AField.AsString;
+              if not lStrValue.IsEmpty then
+              begin
+                lInternalStream.Write(lStrValue, Length(lStrValue));
+                lInternalStream.Position := 0;
+              end;
+            end
+        else
+          begin
+            raise EMVCException.CreateFmt('Unsupported FieldType (%d) for field %s',
+              [Ord(AField.DataType), AField.FieldName]);
+          end;
+        end;
+        // aRTTIField.SetValue(AObject, AField.AsString);
       end;
     ftLargeint, ftAutoInc:
       begin

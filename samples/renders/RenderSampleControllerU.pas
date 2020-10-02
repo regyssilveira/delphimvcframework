@@ -91,7 +91,6 @@ type
     [MVCProduces('application/json')]
     procedure GetNil;
 
-
     [MVCHTTPMethod([httpGET])]
     [MVCPath('/interfacedpeople')]
     [MVCProduces('application/json')]
@@ -175,6 +174,10 @@ type
     [MVCHTTPMethod([httpGET])]
     [MVCPath('/simplearray')]
     procedure GetSimpleArrays;
+
+    [MVCHTTPMethod([httpGET])]
+    [MVCPath('/simplelists')]
+    procedure GetSimpleLists;
 
     [MVCHTTPMethod([httpGET])]
     [MVCPath('/objectwithjson')]
@@ -533,7 +536,20 @@ begin
           .Add(HATEOAS.REL, 'orders')
           .Add(HATEOAS._TYPE, 'application/json');
       end)
-      .Add('singleCustomer', lDM.qryCustomers, nil, dstSingleRecord, ncPascalCase);
+      .Add('singleCustomer', lDM.qryCustomers,
+      procedure(const DS: TDataset; const Links: IMVCLinks)
+      begin
+        Links
+          .AddRefLink
+          .Add(HATEOAS.HREF, '/customers/' + DS.FieldByName('cust_no').AsString)
+          .Add(HATEOAS.REL, 'self')
+          .Add(HATEOAS._TYPE, 'application/json');
+        Links
+          .AddRefLink
+          .Add(HATEOAS.HREF, '/customers/' + DS.FieldByName('cust_no').AsString + '/orders')
+          .Add(HATEOAS.REL, 'orders')
+          .Add(HATEOAS._TYPE, 'application/json');
+      end, dstSingleRecord, ncPascalCase);
     Render(lDict);
   finally
     lDM.Free;
@@ -709,6 +725,11 @@ end;
 procedure TRenderSampleController.GetSimpleArrays;
 begin
   Render(TArrayTest.Create);
+end;
+
+procedure TRenderSampleController.GetSimpleLists;
+begin
+  Render(TSimpleListTest.Create);
 end;
 
 procedure TRenderSampleController.GetPeopleAsCSV;

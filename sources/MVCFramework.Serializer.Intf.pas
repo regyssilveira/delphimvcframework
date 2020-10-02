@@ -118,7 +118,8 @@ type
       const ASerializedObject: string;
       const AObject: TObject;
       const AType: TMVCSerializationType = stDefault;
-      const AIgnoredAttributes: TMVCIgnoredList = nil
+      const AIgnoredAttributes: TMVCIgnoredList = nil;
+      const ARootNode: String = ''
       ); overload;
 
     procedure DeserializeObject(
@@ -133,7 +134,8 @@ type
       const AList: TObject;
       const AClazz: TClass;
       const AType: TMVCSerializationType = stDefault;
-      const AIgnoredAttributes: TMVCIgnoredList = nil
+      const AIgnoredAttributes: TMVCIgnoredList = nil;
+      const ARootNode: String = ''
       ); overload;
 
     procedure DeserializeCollection(

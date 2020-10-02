@@ -33,7 +33,6 @@ uses
   System.DateUtils,
   System.Hash;
 
-
 type
 
   TBaseServerTest = class(TObject)
@@ -184,6 +183,21 @@ type
     [Test]
     procedure TestTypedIntegerWrongParam1;
 
+    // test exceptions rendering
+    [Test]
+    [Category('renders,exceptions')]
+    procedure TestEMVCException1;
+    [Test]
+    [Category('renders,exceptions')]
+    procedure TestEMVCException2;
+    [Test]
+    [Category('renders,exceptions')]
+    procedure TestEMVCException3;
+
+    [Test]
+    [Category('renders,exceptions')]
+    procedure TestEMVCException4;
+
     // test nullables
     [Test]
     procedure TestDeserializeNullablesWithValue;
@@ -206,16 +220,28 @@ type
 
     // test web server
     [Test]
+    [Category('staticfiles')]
     procedure TestDirectoryTraversal1;
     [Test]
+    [Category('staticfiles')]
     procedure TestDirectoryTraversal2;
     [Test]
+    [Category('staticfiles')]
     procedure TestDirectoryRedirect;
     [Test]
+    [Category('staticfiles')]
+    procedure TestFileWithFolderName;
+    [Test]
+    [Category('staticfiles')]
     procedure TestSPASupport;
     // test server side views
     [Test]
     procedure TestViewDataViewDataSet;
+
+    // test issues
+    [Test]
+    [Category('renders')]
+    procedure TestIssue406;
 
   end;
 
@@ -224,11 +250,16 @@ type
   protected
     FExecutor: IMVCJSONRPCExecutor;
     FExecutor2: IMVCJSONRPCExecutor;
+    FExecutor3: IMVCJSONRPCExecutor;
   public
     [Setup]
     procedure Setup;
     [Test]
     procedure TestRequestWithoutParams;
+    [Test]
+    procedure TestNotificationWithoutParams;
+    [Test]
+    procedure TestNotificationWhichRaisesError;
     [Test]
     procedure TestRequestToNotFoundMethod;
     [Test]
@@ -249,6 +280,26 @@ type
     procedure TestRequestWithParams_I_I_ret_A;
     [Test]
     procedure TestRequestWithParams_DT_T_ret_DT;
+    // hooks tests
+    [Test]
+    procedure TestHooks;
+    [Test]
+    procedure TestHooksWhenMethodRaisesError;
+    [Test]
+    procedure TestHooksWhenOnAfterCallHookRaisesError;
+    [Test]
+    procedure TestHooksNotif;
+    [Test]
+    procedure TestHooksNotifWhenOnBeforeRoutingHookRaisesError;
+    [Test]
+    procedure TestHooksNotifWhenOnBeforeCallHookRaisesError;
+    [Test]
+    procedure TestHooksNotifWhenOnAfterCallHookRaisesError;
+    [Test]
+    procedure TestHooksWhenOnBeforeCallHookRaisesError;
+    [Test]
+    procedure TestHooksWhenOnBeforeRoutingHookRaisesError;
+
   end;
 
 implementation
@@ -278,7 +329,7 @@ uses
 {$ENDIF}
     , TestConstsU;
 
-function GetServer: String;
+function GetServer: string;
 begin
   Result := 'http://' + TEST_SERVER_ADDRESS + ':9999';
 end;
@@ -755,27 +806,113 @@ begin
 
 end;
 
+procedure TServerTest.TestEMVCException1;
+var
+  res: IRESTResponse;
+  lJSON: TJSONObject;
+begin
+  res := RESTClient.doGET('/exception/emvcexception1', []);
+  Assert.areEqual<Integer>(HTTP_STATUS.InternalServerError, res.ResponseCode);
+  lJSON := StrToJSONObject(res.BodyAsString);
+  try
+    Assert.areEqual<string>('message', lJSON.S['message'], lJSON.ToJSON());
+    Assert.areEqual<string>('EMVCException', lJSON.S['classname'], lJSON.ToJSON());
+    Assert.areEqual<Integer>(500, lJSON.I['statuscode'], lJSON.ToJSON());
+    Assert.areEqual<string>('error', lJSON.S['reasonstring'], lJSON.ToJSON());
+    Assert.areEqual(0, lJSON.A['items'].Count, lJSON.ToJSON());
+    Assert.isTrue(lJSON.IsNull('data'), lJSON.ToJSON());
+  finally
+    lJSON.Free;
+  end;
+
+end;
+
+procedure TServerTest.TestEMVCException2;
+var
+  res: IRESTResponse;
+  lJSON: TJSONObject;
+begin
+  res := RESTClient.doGET('/exception/emvcexception2', []);
+  Assert.areEqual<Integer>(HTTP_STATUS.BadRequest, res.ResponseCode);
+  lJSON := StrToJSONObject(res.BodyAsString);
+  try
+    Assert.areEqual<string>('message', lJSON.S['message'], lJSON.ToJSON());
+    Assert.areEqual<string>('EMVCException', lJSON.S['classname'], lJSON.ToJSON());
+    Assert.areEqual<Integer>(HTTP_STATUS.BadRequest, lJSON.I['statuscode'], lJSON.ToJSON());
+    Assert.areEqual<string>('error', lJSON.S['reasonstring'], lJSON.ToJSON());
+    Assert.areEqual(0, lJSON.A['items'].Count, lJSON.ToJSON());
+    Assert.isTrue(lJSON.IsNull('data'), lJSON.ToJSON());
+  finally
+    lJSON.Free;
+  end;
+end;
+
+procedure TServerTest.TestEMVCException3;
+var
+  res: IRESTResponse;
+  lJSON: TJSONObject;
+begin
+  res := RESTClient.doGET('/exception/emvcexception3', []);
+  Assert.areEqual<Integer>(HTTP_STATUS.Created, res.ResponseCode);
+  lJSON := StrToJSONObject(res.BodyAsString);
+  try
+    Assert.areEqual('message', lJSON.S['message'], lJSON.ToJSON());
+    Assert.areEqual('EMVCException', lJSON.S['classname'], lJSON.ToJSON());
+    Assert.areEqual(HTTP_STATUS.Created, lJSON.I['statuscode'], lJSON.ToJSON());
+    Assert.areEqual('error', lJSON.S['reasonstring'], lJSON.ToJSON());
+    Assert.areEqual(999, lJSON.I['apperrorcode'], lJSON.ToJSON());
+    Assert.areEqual(0, lJSON.A['items'].Count, lJSON.ToJSON());
+    Assert.isTrue(lJSON.IsNull('data'), lJSON.ToJSON());
+  finally
+    lJSON.Free;
+  end;
+end;
+
+procedure TServerTest.TestEMVCException4;
+var
+  res: IRESTResponse;
+  lJSON: TJSONObject;
+begin
+  res := RESTClient.doGET('/exception/emvcexception4', []);
+  Assert.areEqual<Integer>(HTTP_STATUS.Created, res.ResponseCode);
+  lJSON := StrToJSONObject(res.BodyAsString);
+  try
+    Assert.areEqual('message', lJSON.S['message'], lJSON.ToJSON());
+    Assert.areEqual('detailedmessage', lJSON.S['detailedmessage'], lJSON.ToJSON());
+    Assert.areEqual('EMVCException', lJSON.S['classname'], lJSON.ToJSON());
+    Assert.areEqual(HTTP_STATUS.Created, lJSON.I['statuscode'], lJSON.ToJSON());
+    Assert.areEqual('error', lJSON.S['reasonstring'], lJSON.ToJSON());
+    Assert.areEqual(999, lJSON.I['apperrorcode'], lJSON.ToJSON());
+    Assert.areEqual(2, lJSON.A['items'].Count, lJSON.ToJSON());
+    Assert.areEqual('erritem1', lJSON.A['items'].O[0].S['message'], lJSON.ToJSON());
+    Assert.areEqual('erritem2', lJSON.A['items'].O[1].S['message'], lJSON.ToJSON());
+    Assert.isTrue(lJSON.IsNull('data'), lJSON.ToJSON());
+  finally
+    lJSON.Free;
+  end;
+end;
+
 procedure TServerTest.TestEncodingRenderJSONValue;
 var
   res: IRESTResponse;
-  s: string;
+  S: string;
   lJSONObj: System.JSON.TJSONObject;
 begin
   res := RESTClient.doGET('/encoding', []);
 
   lJSONObj := TSystemJSON.StringAsJSONObject(res.BodyAsString);
-  s := lJSONObj.Get('name1').JsonValue.Value;
-  Assert.areEqual('jørn', s);
+  S := lJSONObj.Get('name1').JsonValue.Value;
+  Assert.areEqual('jørn', S);
   lJSONObj.Free;
 
   lJSONObj := TSystemJSON.StringAsJSONObject(res.BodyAsString);
-  s := lJSONObj.Get('name3').JsonValue.Value;
-  Assert.areEqual('àèéìòù', s);
+  S := lJSONObj.Get('name3').JsonValue.Value;
+  Assert.areEqual('àèéìòù', S);
   lJSONObj.Free;
 
   lJSONObj := TSystemJSON.StringAsJSONObject(res.BodyAsString);
-  s := lJSONObj.Get('name2').JsonValue.Value;
-  Assert.areEqual('Što je Unicode?', s, 'If this test fail, check http://qc.embarcadero.com/wc/qcmain.aspx?d=119779');
+  S := lJSONObj.Get('name2').JsonValue.Value;
+  Assert.areEqual('Što je Unicode?', S, 'If this test fail, check http://qc.embarcadero.com/wc/qcmain.aspx?d=119779');
   lJSONObj.Free;
   { WARNING!!! }
   {
@@ -796,8 +933,8 @@ begin
     for I := 0 to lJArr.Count - 1 do
     begin
       Assert.isTrue(lJArr[I].A[TMVCConstants.HATEOAS_PROP_NAME].Count = 2, '_links doesn''t exists');
-      Assert.areEqual(lJArr[I].A[TMVCConstants.HATEOAS_PROP_NAME].O[0].s[HATEOAS.REL], 'test0');
-      Assert.areEqual(lJArr[I].A[TMVCConstants.HATEOAS_PROP_NAME].O[1].s[HATEOAS.REL], 'test1');
+      Assert.areEqual(lJArr[I].A[TMVCConstants.HATEOAS_PROP_NAME].O[0].S[HATEOAS.REL], 'test0');
+      Assert.areEqual(lJArr[I].A[TMVCConstants.HATEOAS_PROP_NAME].O[1].S[HATEOAS.REL], 'test1');
     end;
   finally
     lJArr.Free;
@@ -865,9 +1002,9 @@ begin
     try
       for I := 0 to lJSONArr.Count - 1 do
       begin
-        Assert.isFalse(lJSONArr.O[I].s['firstname'].IsEmpty);
-        Assert.isFalse(lJSONArr.O[I].s['lastname'].IsEmpty);
-        Assert.isFalse(lJSONArr.O[I].s['dob'].IsEmpty);
+        Assert.isFalse(lJSONArr.O[I].S['firstname'].IsEmpty);
+        Assert.isFalse(lJSONArr.O[I].S['lastname'].IsEmpty);
+        Assert.isFalse(lJSONArr.O[I].S['dob'].IsEmpty);
         Assert.areEqual<TJsonDataType>(jdtBool, lJSONArr.O[I].Types['married']);
       end;
     finally
@@ -891,6 +1028,36 @@ var
 begin
   res := RESTClient.doGET('/exception/beforedestroy/nevercalled', []);
   Assert.areEqual<Integer>(HTTP_STATUS.InternalServerError, res.ResponseCode);
+end;
+
+procedure TServerTest.TestFileWithFolderName;
+var
+  lRes: IRESTResponse;
+begin
+  lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).doGET('', []);
+  Assert.areEqual(404, lRes.ResponseCode, '<empty>');
+
+  lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).doGET('/static/index.html', []);
+  Assert.areEqual(200, lRes.ResponseCode, '/static/index.html');
+
+  lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).doGET('/static.html', []);
+  Assert.areEqual(404, lRes.ResponseCode, '/static.html');
+
+  lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).doGET('/static', []);
+  Assert.areEqual(301, lRes.ResponseCode, '/static');
+
+  lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).doGET('/static/', []);
+  Assert.areEqual(200, lRes.ResponseCode, '/static/');
+
+  lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).doGET('/static/folder1', []);
+  Assert.areEqual(301, lRes.ResponseCode, '/static/folder1');
+
+  lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).doGET('/static/folder1/', []);
+  Assert.areEqual(200, lRes.ResponseCode, '/static/folder1/');
+
+  lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).doGET('/static/folder1.html', []);
+  Assert.areEqual(200, lRes.ResponseCode, '/static/folder1.html');
+  Assert.areEqual('This is a TEXT file', lRes.BodyAsString, '/static/folder1.html');
 end;
 
 procedure TServerTest.TestGetImagePng;
@@ -927,6 +1094,15 @@ begin
   finally
     c1.Free;
   end;
+end;
+
+procedure TServerTest.TestIssue406;
+var
+  r: IRESTResponse;
+begin
+  r := RESTClient.Accept(TMVCMediaType.APPLICATION_JSON).doGET('/issues/406', []);
+  Assert.areEqual(422, r.ResponseCode);
+  Assert.areEqual('{"message":"The Message"}', r.BodyAsString, r.BodyAsString);
 end;
 
 procedure TServerTest.TestMiddlewareHandler;
@@ -1261,8 +1437,8 @@ begin
   lJSON := StrToJSONObject(r.BodyAsString);
   try
     Assert.areEqual(2, lJSON.O['task'].Count);
-    Assert.areEqual('http://pippo.it/1234', lJSON.O['task'].s['href']);
-    Assert.areEqual('1234', lJSON.O['task'].s['id']);
+    Assert.areEqual('http://pippo.it/1234', lJSON.O['task'].S['href']);
+    Assert.areEqual('1234', lJSON.O['task'].S['id']);
   finally
     lJSON.Free;
   end;
@@ -1401,18 +1577,18 @@ var
   I: Integer;
   lUrl: string;
 begin
-  lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).doGET('/index.html', []);
+  lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).doGET('/static/index.html', []);
   Assert.areEqual(200, lRes.ResponseCode);
 
-  lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).doGET('/..\donotdeleteme.txt', []);
+  lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).doGET('/static/..\donotdeleteme.txt', []);
   Assert.areEqual(404, lRes.ResponseCode);
 
   lUrl := 'Windows\win.ini';
   for I := 1 to 20 do
   begin
     lUrl := '..\' + lUrl;
-    lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).doGET('/' + lUrl, []);
-    Assert.areEqual(404, lRes.ResponseCode, 'Fail with: ' + '/' + lUrl);
+    lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).doGET('/static/' + lUrl, []);
+    Assert.areEqual(404, lRes.ResponseCode, 'Fail with: ' + '/static/' + lUrl);
   end;
 end;
 
@@ -1422,12 +1598,6 @@ var
   I: Integer;
   lUrl: string;
 begin
-  lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).doGET('/static/index.html', []);
-  Assert.areEqual(200, lRes.ResponseCode, '/static/index.html');
-
-  lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).doGET('/static.html', []);
-  Assert.areEqual(200, lRes.ResponseCode, '/static.html');
-
   lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).doGET('/static/..\..\donotdeleteme.txt', []);
   Assert.areEqual(404, lRes.ResponseCode);
 
@@ -1438,8 +1608,8 @@ begin
   for I := 1 to 30 do
   begin
     lUrl := '..\' + lUrl;
-    lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).doGET('/' + lUrl, []);
-    Assert.areEqual(404, lRes.ResponseCode, 'Fail with: ' + '/' + lUrl);
+    lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).doGET('/static/' + lUrl, []);
+    Assert.areEqual(404, lRes.ResponseCode, 'Fail with: ' + '/static/' + lUrl);
   end;
 end;
 
@@ -1547,14 +1717,14 @@ procedure TServerTest.TestSession;
 var
   c1: TRESTClient;
   res: IRESTResponse;
-  s: string;
+  S: string;
 begin
   c1 := TRESTClient.Create(TEST_SERVER_ADDRESS, 9999);
   try
     c1.Accept(TMVCMediaType.APPLICATION_JSON);
     res := c1.doPOST('/session', ['daniele teti']); // imposto un valore in sessione
-    s := res.HeaderValue('Set-Cookie');
-    Assert.isFalse(s.Contains('Expires'), 'Session cookie contains "expires" attribute');
+    S := res.HeaderValue('Set-Cookie');
+    Assert.isFalse(S.Contains('Expires'), 'Session cookie contains "expires" attribute');
     res := c1.doGET('/session', []); // rileggo il valore dalla sessione
     Assert.areEqual('daniele teti', res.BodyAsString);
     c1.Accept(TMVCMediaType.TEXT_PLAIN);
@@ -1600,10 +1770,12 @@ begin
   lUrl := 'Windows\win.ini';
   for I := 1 to 30 do
   begin
+    { directory traversal attacks receive always 404 }
     lUrl := '..\' + lUrl;
     lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).doGET('/spa/' + lUrl, []);
-    Assert.areEqual(200, lRes.ResponseCode);
-    Assert.Contains(lRes.BodyAsString, 'This is a TEXT file');
+    Assert.areEqual(404, lRes.ResponseCode);
+    Assert.Contains(lRes.BodyAsString, '[EMVCException] Not Found', true);
+    Assert.Contains(lRes.BodyAsString, '<p>HTTP 404</p>', true);
   end;
 end;
 
@@ -1724,7 +1896,7 @@ procedure TServerTest.TestTypedString1;
 var
   res: IRESTResponse;
   lValues: array [0 .. 7] of string;
-  s: string;
+  S: string;
 begin
   lValues[0] := 'daniele';
   lValues[1] := 'dan''iele';
@@ -1734,11 +1906,11 @@ begin
   lValues[5] := '"daniele" "teti"!';
   lValues[6] := ' _\"daniele" "teti"!_ ';
 
-  for s in lValues do
+  for S in lValues do
   begin
-    res := RESTClient.doGET('/typed/string1', [s]);
-    Assert.areEqual(HTTP_STATUS.OK, res.ResponseCode, 'Cannot route when param is ' + s);
-    Assert.areEqual('*' + s + '*', res.BodyAsString);
+    res := RESTClient.doGET('/typed/string1', [S]);
+    Assert.areEqual(HTTP_STATUS.OK, res.ResponseCode, 'Cannot route when param is [' + S + ']');
+    Assert.areEqual('*' + S + '*', res.BodyAsString);
   end;
 
   // res := RESTClient.doGET('/typed/string1/daniele', []);
@@ -1876,6 +2048,139 @@ procedure TJSONRPCServerTest.Setup;
 begin
   FExecutor := TMVCJSONRPCExecutor.Create('http://' + TEST_SERVER_ADDRESS + ':9999/jsonrpc', false);
   FExecutor2 := TMVCJSONRPCExecutor.Create('http://' + TEST_SERVER_ADDRESS + ':9999/jsonrpcclass', false);
+  FExecutor3 := TMVCJSONRPCExecutor.Create('http://' + TEST_SERVER_ADDRESS + ':9999/jsonrpcclass1', false);
+end;
+
+procedure TJSONRPCServerTest.TestHooks;
+begin
+  var lRequest1: IJSONRPCRequest := TJSONRPCRequest.Create(1234, 'request1');
+  var
+  lResp := FExecutor3.ExecuteRequest(lRequest1);
+  Assert.areEqual('OnBeforeRoutingHook|OnBeforeCallHook|OnAfterCallHook',
+    FExecutor3.HTTPResponse.HeaderValue['x-history']);
+end;
+
+procedure TJSONRPCServerTest.TestHooksNotif;
+var
+  lResp: IJSONRPCResponse;
+begin
+  var lNotif: IJSONRPCNotification := TJSONRPCNotification.Create('Notif1');
+  lResp := FExecutor3.ExecuteNotification(lNotif);
+  Assert.areEqual('OnBeforeRoutingHook|OnBeforeCallHook|OnAfterCallHook',
+    FExecutor3.HTTPResponse.HeaderValue['x-history']);
+  Assert.isFalse(lResp.IsError);
+  Assert.WillRaise(
+    procedure
+    begin
+      lResp.AsJSONString;
+    end, EMVCJSONRPCException);
+end;
+
+procedure TJSONRPCServerTest.TestHooksNotifWhenOnAfterCallHookRaisesError;
+var
+  lResp: IJSONRPCResponse;
+begin
+  var lNotif: IJSONRPCNotification := TJSONRPCNotification.Create('error_OnAfterCallHook');
+  lResp := FExecutor3.ExecuteNotification(lNotif);
+  Assert.areEqual('', FExecutor3.HTTPResponse.HeaderValue['x-history']);
+  Assert.isTrue(lResp.IsError);
+  Assert.WillNotRaise(
+    procedure
+    begin
+      lResp.AsJSONString;
+    end, EMVCJSONRPCException);
+end;
+
+procedure TJSONRPCServerTest.TestHooksNotifWhenOnBeforeCallHookRaisesError;
+var
+  lResp: IJSONRPCResponse;
+begin
+  var lNotif: IJSONRPCNotification := TJSONRPCNotification.Create('error_OnBeforeCallHook');
+  lResp := FExecutor3.ExecuteNotification(lNotif);
+  Assert.areEqual('', FExecutor3.HTTPResponse.HeaderValue['x-history']);
+  Assert.isTrue(lResp.IsError);
+  Assert.WillNotRaise(
+    procedure
+    begin
+      lResp.AsJSONString;
+    end, EMVCJSONRPCException);
+end;
+
+procedure TJSONRPCServerTest.TestHooksNotifWhenOnBeforeRoutingHookRaisesError;
+var
+  lResp: IJSONRPCResponse;
+begin
+  var lNotif: IJSONRPCNotification := TJSONRPCNotification.Create('error_OnBeforeRoutingHook');
+  lResp := FExecutor3.ExecuteNotification(lNotif);
+  Assert.areEqual('', FExecutor3.HTTPResponse.HeaderValue['x-history']);
+  Assert.isTrue(lResp.IsError);
+  Assert.WillNotRaise(
+    procedure
+    begin
+      lResp.AsJSONString;
+    end, EMVCJSONRPCException);
+end;
+
+procedure TJSONRPCServerTest.TestHooksWhenMethodRaisesError;
+var
+  lResp: IJSONRPCResponse;
+begin
+  var lRequest1: IJSONRPCRequest := TJSONRPCRequest.Create(1234, 'RequestWithError');
+  lResp := FExecutor3.ExecuteRequest(lRequest1);
+  Assert.areEqual('OnBeforeRoutingHook|OnBeforeCallHook|OnAfterCallHook|error',
+    FExecutor3.HTTPResponse.HeaderValue['x-history']);
+  Assert.isTrue(lResp.IsError, 'Method raised error but response is not an error');
+end;
+
+procedure TJSONRPCServerTest.TestHooksWhenOnAfterCallHookRaisesError;
+begin
+  var lRequest1: IJSONRPCRequest := TJSONRPCRequest.Create(1234, 'error_OnAfterCallHook');
+  var
+  lResp := FExecutor3.ExecuteRequest(lRequest1);
+  Assert.isTrue(lResp.IsError, lResp.ToString(true));
+  Assert.areEqual(lResp.Error.ErrMessage, 'error_OnAfterCallHook');
+end;
+
+procedure TJSONRPCServerTest.TestHooksWhenOnBeforeCallHookRaisesError;
+begin
+  var lRequest1: IJSONRPCRequest := TJSONRPCRequest.Create(1234, 'error_OnBeforeCallHook');
+  var
+  lResp := FExecutor3.ExecuteRequest(lRequest1);
+  Assert.isTrue(lResp.IsError, lResp.ToString(true));
+  Assert.areEqual(lResp.Error.ErrMessage, 'error_OnBeforeCallHook');
+
+end;
+
+procedure TJSONRPCServerTest.TestHooksWhenOnBeforeRoutingHookRaisesError;
+begin
+  var lRequest1: IJSONRPCRequest := TJSONRPCRequest.Create(1234, 'error_OnBeforeRoutingHook');
+  var
+  lResp := FExecutor3.ExecuteRequest(lRequest1);
+  Assert.isTrue(lResp.IsError, lResp.ToString(true));
+  Assert.areEqual(lResp.Error.ErrMessage, 'error_OnBeforeRoutingHook');
+end;
+
+procedure TJSONRPCServerTest.TestNotificationWhichRaisesError;
+var
+  lReq: IJSONRPCNotification;
+begin
+  lReq := TJSONRPCNotification.Create;
+  lReq.Method := 'NotifWithError';
+  var
+  lResp := FExecutor3.ExecuteNotification(lReq);
+  Assert.isTrue(lResp.IsError);
+  Assert.Contains(lResp.Error.ErrMessage, 'BOOM NOTIF');
+end;
+
+procedure TJSONRPCServerTest.TestNotificationWithoutParams;
+var
+  lReq: IJSONRPCNotification;
+begin
+  lReq := TJSONRPCNotification.Create;
+  lReq.Method := 'mynotify';
+  FExecutor.ExecuteNotification(lReq);
+  FExecutor2.ExecuteNotification(lReq);
+  Assert.Pass();
 end;
 
 procedure TJSONRPCServerTest.TestRequestToNotFoundMethod;
@@ -1889,7 +2194,7 @@ begin
   lResp := FExecutor.ExecuteRequest(lReq);
   Assert.IsNotNull(lResp.Error);
   Assert.areEqual(-32601, lResp.Error.Code);
-  Assert.isTrue(lResp.Error.ErrMessage.StartsWith('Method "nonexist" not found.'));
+  Assert.isTrue(lResp.Error.ErrMessage.StartsWith('Method [nonexist] not found.'));
 end;
 
 procedure TJSONRPCServerTest.TestRequestWithParams_DT_T_ret_DT;
@@ -1912,7 +2217,7 @@ begin
   lReq.RequestID := 1234;
 
   lRPCResp := FExecutor2.ExecuteRequest(lReq);
-  lRes := lRPCResp.Result.AsType<TDateTime>();
+  lRes := ISOTimeStampToDateTime(lRPCResp.Result.AsString());
   DecodeDateTime(lRes, lYear, lMonth, lDay, lHour, lMinute, lSecond, lMillisecond);
   Assert.areEqual(2000, lYear);
 end;
@@ -1931,7 +2236,7 @@ begin
 
   lRPCResp := FExecutor.ExecuteRequest(lReq);
   Assert.isTrue(lRPCResp.IsError);
-  Assert.Contains(lRPCResp.Error.ErrMessage, 'cannot map all parameter', true);
+  Assert.Contains(lRPCResp.Error.ErrMessage, 'cannot find parameter', true);
 end;
 
 procedure TJSONRPCServerTest.TestRequestWithNamedParams_I_I_I_ret_O;
@@ -1978,13 +2283,15 @@ end;
 
 procedure TJSONRPCServerTest.TestRequestWithoutParams;
 var
-  lReq: IJSONRPCNotification;
+  lReq: IJSONRPCRequest;
+  lResp: IJSONRPCResponse;
 begin
-  lReq := TJSONRPCNotification.Create;
-  lReq.Method := 'mynotify';
-  FExecutor.ExecuteNotification(lReq);
-  FExecutor2.ExecuteNotification(lReq);
-  Assert.Pass();
+  lReq := TJSONRPCRequest.Create;
+  lReq.Method := 'MyRequest';
+  lReq.RequestID := 1234;
+  lResp := FExecutor.ExecuteRequest(lReq);
+  Assert.isFalse(lResp.IsError);
+  Assert.isTrue(lResp.Result.AsBoolean);
 end;
 
 procedure TJSONRPCServerTest.TestRequestWithParams_I_I_ret_I;

@@ -1,26 +1,35 @@
+![](https://img.shields.io/badge/current%20dmvcframework%20version-3.2.0--boron-blue?style=for-the-badge)
 ![DelphiMVCFramework Logo](docs/dmvcframework_logofacebook.png)
+![](https://img.shields.io/badge/next%20DMVCFramework%20version-3.2.1--carbon-red)  ![GitHub All Releases](https://img.shields.io/github/downloads/danieleteti/delphimvcframework/total?label=releases%20download)
 
 
 
-# DelphiMVCFramework 3.2.0-boron is [here](https://github.com/danieleteti/delphimvcframework/releases/tag/v3_2_0_boron)!
+## DelphiMVCFramework 3.2.0-boron is [here 📥](https://github.com/danieleteti/delphimvcframework/releases/tag/v3_2_0_boron) !
 
 DMVCFramework is a very popular Delphi framework which provides an easy to use, scalable, flexible [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer), [JSON-RPC](https://en.wikipedia.org/wiki/JSON-RPC) and [ActiveRecord](https://www.martinfowler.com/eaaCatalog/activeRecord.html) framework for Delphi developers. DMVCFramework is the **most popular** Delphi project on GitHub and compiles for Windows (32 and 64bit) and Linux (64bit). DMVCFramework services can be compiled as console application,  Windows Service, Linux daemon, Apache module (Windows and Linux) and IIS ISAPI (Windows).
 
 DMVCFramework works with Delphi 10.4 Sydney, Delphi 10.3 Rio, Delphi 10.2 Tokyo, Delphi 10.1 Berlin,  Delphi 10 Seattle.
 
-**Daniele Teti is working on the [DelphiMVCFramework Handbook](https://leanpub.com/delphimvcframework)! Stay tuned!**
+## DelphiMVCFramework - the official guide
 
-![](docs/delphimvcframework_handbook_cover.png)
+The official guide for DMVCFramework is available. DMVCFramework has a lot functionalities and can really help your business. However many developers don't use it at its full potential. Why don't get more when is easily available? The DMVCFramework lead developer and project coordinator Daniele Teti, wrote the official guide for this great framework.
 
+![DelphiMVCFramework - the official guide](https://raw.githubusercontent.com/danieleteti/delphimvcframework/master/docs/logoproject/dmvcframework_the_official_guide_very_small.png)
 
+[Buy your copy](https://leanpub.com/delphimvcframework) and improve your DMVCFramework knowledge now!
+
+> While a huge work has been done by the author and the reviews to make the book and the examples well written, complete and effective, things can be always improved. For any suggestions, complains or requests there is the official Github book project (https://github.com/danieleteti/dmvcframeworktheofficialguide) where you can fill an issue and get in touch directly with the author. 
+
+---
 
 **Please, if you use DMVCFramework "star" this project in GitHub! It cost nothing to you but helps other developers to reference the code.**
 
-<img src="https://raw.githubusercontent.com/danieleteti/delphimvcframework/master/docs/starproject.png" alt="like" />
+![](https://raw.githubusercontent.com/danieleteti/delphimvcframework/master/docs/starproject.png)
 
 ## How to install DMVCFramework
 
 *It is not needed to download the git repository*. Just download the [latest version as a zip file](https://github.com/danieleteti/delphimvcframework/releases/latest) and you are ok.
+
 If you want to participate to the testing phase (which usually contains brand new features) you can get the [latest Release Candidate version](https://github.com/danieleteti/delphimvcframework/releases).
 Take in mind that, even if RCs are usually very stable, they are still not ready for production utilization.
 
@@ -280,14 +289,13 @@ Congratulations to Daniele Teti and all the staff for the excellent work!" -- Ma
         FMonthOrder: TMonthEnum;    
       public
         // List items separated by comma or semicolon
-        [MVCEnumSerializationType(estEnumMappedValues,
-        	'January,February,March,April')]
+        [MVCEnumSerialization(estEnumMappedValues, 'January,February,March,April')]
         property MonthMappedNames: TMonthEnum 
-        	read FMonthMappedNames write FMonthMappedNames;
-        [MVCEnumSerializationType(estEnumName)]
+        read FMonthMappedNames write FMonthMappedNames;
+        [MVCEnumSerialization(estEnumName)]
         property MonthEnumName: TMonthEnum 
-        	read FMonthEnumName write FMonthEnumName;
-        [MVCEnumSerializationType(estEnumOrd)]
+        read FMonthEnumName write FMonthEnumName;
+        [MVCEnumSerialization(estEnumOrd)]
         property MonthOrder: TMonthEnum read FMonthOrder write FMonthOrder;
       end;
     ...
@@ -383,7 +391,214 @@ Congratulations to Daniele Teti and all the staff for the excellent work!" -- Ma
 - Fixed! [issue388](https://github.com/danieleteti/delphimvcframework/issues/388)
 - Fixed! Has been patched a serious security bug affecting deployment configurations which uses internal WebServer to serve static files (do not affect all Apache, IIS or proxied deployments).  Thanks to **Stephan Munz** to have discovered it. *Update to dmvcframework-3.2-RC5+ is required for all such kind of deployments.*
 
+## 3.2.1-carbon ("repo" version currently in beta)
+
+### Improvements and Bug Fixes
+
+- [docExpansion parameter for Swagger](https://github.com/danieleteti/delphimvcframework/issues/408)
+
+- New `Context: TWebContext` parameter in JSON-RPC Hooks
+
+  ```delphi
+  { Called before any actual routing }
+  procedure OnBeforeRoutingHook(const Context: TWebContext; const JSON: TJsonObject);
+  { Called after routing and before the actual remote method invocation }
+  procedure OnBeforeCallHook(const Context: TWebContext; const JSON: TJsonObject);
+  { Called after actual remote method invocation, even if the method raised an exception }
+  procedure OnAfterCallHook(const Context: TWebContext; const JSON: TJsonObject);
+  ```
+
+- When a JSON-RPC Request returns a `System.Boolean` the `result` will be a JSON `true` or `false` and no `1` or `0` as it was in the `3.2.0-boron`.
+
+- `IMVCJSONRPCExecutor.ExecuteNotification` returns a `IJSONRPCResponse`. In case of error response contains information about the error, in case of successful execution the response is a [Null Object](https://en.wikipedia.org/wiki/Null_object_pattern).
+
+- New React demo (Thanks to [Angelo Sobreira da Silva](https://github.com/angelosobreira))
+
+- Serialization support for `TList<Integer>`, `TList<String>`, `TList<Boolean>` and for all `TList<T>` of simple types.
+
+- Added  method `MetadataAsJSONObject(FieldNameCase: TMVCNameCase = ncLowerCase): TJSONObject;` in `TDataSetHelper`. This method returns the dataset field definitions. While this is valid only for Delphi datasets, can be useful to describe a dataset to a Delphi client.
+
+  ```json
+  {
+  	"fielddefs": [
+      	{
+          	"datatype": 3,
+              "displayname": "ID",
+              "fieldname": "id",
+              "precision": 0,
+              "size": 0
+           },
+           {
+           	"datatype": 24,
+              "displayname": "CODE",
+              "fieldname": "code",
+              "precision": 0,
+              "size": 5
+           },
+           {
+           	"datatype": 24,
+              "displayname": "DESCRIPTION",
+              "fieldname": "description",
+              "precision": 0,
+              "size": 200
+           },
+           {
+           	"datatype": 37,
+              "displayname": "PRICE",
+              "fieldname": "price",
+              "precision": 18,
+              "size": 2
+            }
+        ]
+  }
+  ```
+
+  The static method `class procedure TFireDACUtils.CreateDatasetFromMetadata(
+    AFDMemTable: TFDMemTable; AMeta: TJSONObject);` gets the previous structure and initialize the fields of `AFDMemTable` with it. When a TFDMemTable is initialized using this approach, the data can be directly loaded from a jsonarray of jsonobject with the same field names. *WARNING: This mechanism works only for Delphi clients*. Check sample `articles_crud_vcl_client_meta.dproj` to understand the involved mechanisms. 
+
+- Added `foReadOnly` and `foWriteOnly` as field options in `MVCTableField` attribute (used by `TMVCActiveRecord`). Currently available field options are:
+
+  - *foPrimaryKey* { it's the primary key of the mapped table }
+  - *foAutoGenerated* { not written, read - similar to foReadOnly but is reloaded after insert and update }
+  - *foTransient* { never stored nor read - managed only at run-time }
+  - *foReadOnly* { not written, read }
+  - *foWriteOnly* { written, not read }
+
+  Now it is possible to declare entities like the followings (or with any other combinations):
+
+  ```delphi
+    [MVCNameCase(ncLowerCase)]
+    [MVCTable('articles')]
+    TArticleWithWriteOnlyFields = class(TCustomEntity)
+    private
+      [MVCTableField('ID', [foPrimaryKey, foAutoGenerated])]
+      fID: NullableInt32;
+      [MVCTableField('description', [foWriteOnly])]
+      fDescription: string;
+      [MVCTableField('price', [foWriteOnly])]
+      fPrice: Integer;
+    public
+      property ID: NullableInt32 read fID write fID;
+      property Description: string read fDescription write fDescription;
+      property Price: Integer read fPrice write fPrice;
+    end;
+  
+    [MVCNameCase(ncLowerCase)]
+    [MVCTable('articles')]
+    TArticleWithReadOnlyFields = class(TCustomEntity)
+    private
+      [MVCTableField('ID', [foPrimaryKey, foReadOnly])]
+      fID: NullableInt32;
+      [MVCTableField('code', [foTransient])]
+      fCode: NullableString;
+      [MVCTableField('description', [foReadOnly])]
+      fDescrizione: string;
+      [MVCTableField('price', [foReadOnly])]
+      fPrice: Currency;
+    public
+      property ID: NullableInt32 read fID write fID;
+      property Code: NullableString read fCode write fCode;
+      property Description: string read fDescription write fDescription;
+      property Price: Currency read fPrice write fPrice;
+    end;
+  ```
+
+- Added the ability to deserialize an object, or alist of objects, starting from an arbitrary node in the JSON (or other format) present in the request body. Works for `BodyAs<T>` and for `BodyAsListOf<T>` (Thanks to [Raphaël Emourgeon](https://github.com/osaris) for the `BodyAsListOf<T>` [implementation](https://github.com/danieleteti/delphimvcframework/issues/415)).
+
+  ```delphi
+  procedure TBooksController.CreateBook;
+  var
+    lBook: TBook;
+  begin
+    //this call deserialize a TBook instance
+    //starting from the 'book' node of
+    //the request body
+    lBook := Context.Request.BodyAs<TBook>('book');
+    try
+      lBook.Insert;
+      Render201Created('/api/books/' + lBook.ID.ToString);
+    finally
+      lBook.Free;
+    end;
+  end;
+  ```
+
+- Improved the primary key type handling for manual handling in MVCActiveRecord.
+
+  ```delphi
+  procedure TMyBaseEntity.OnBeforeInsert;
+  begin
+    inherited;
+    //regardless the name of the PK field
+    //the following code fills the PK with a GUID
+    //Inheriting the other entities from this, all
+    //will inherit this behavior.
+    SetPK(TValue.From<NullableString>(TGUID.NewGuid.ToString));
+    
+    //if the PK was a simple string, the code
+    //should be like the following
+    //SetPK(TGUID.NewGuid.ToString);  
+  end;
+  
+  ```
+
+- Improved `activerecord_showcase` sample.
+
+- Improved `TMVCStaticFilesMiddleware`. Now is able to correctly serve SPA applications from any subfolder.
+
+- Added property `Context.HostingFrameworkType`. This property is of type `TMVCHostingFrameworkType` and can assume one of the following values: `hftIndy` (if the service is using the built-in Indy HTTP server) , `hftApache` (if the project is compiled as Apache module) or `hftISAPI` (if the project is compiled as ISAPI module).
+
+- **Breaking Change**! `TMVCStaticFileMiddleware` cannot be registered to "/" anymore 
+
+  - The suggested solution is to create a simple redirection controller which redirect "/" to the proper path (check [this example](https://github.com/danieleteti/delphimvcframework/blob/master/samples/middleware_staticfiles/SPARedirectController.pas)).
+
+- **Breaking Change!**  `DocumentRoot` of `TMVCStaticFileMiddleware`  must be a valid folder. If `DocumentRoot` doesn't exist an exception is raised.
+
+- Fix for [issue 421](https://github.com/danieleteti/delphimvcframework/issues/421)
+
+- Fix for [issue 424](https://github.com/danieleteti/delphimvcframework/issues/424)
+
+- Added dynamic properties access to `TMVCActiveRecord` descendants. Indexed property `Attributes` is index using the property name and set/get a `TValue` representing the property value.
+
+  ```delphi
+  procedure TMainForm.btnAttributesClick(Sender: TObject);
+  var
+    lCustomer: TCustomer;
+    lID: Integer;
+  begin
+    lCustomer := TCustomer.Create;
+    try
+      lCustomer.Attributes['CompanyName'] := 'Google Inc.';
+      lCustomer.Attributes['City'] := 'Montain View, CA';
+      lCustomer.Attributes['Note'] := 'Hello there!';
+      lCustomer.Attributes['Code'] := 'XX123';
+      lCustomer.Attributes['Rating'] := 3;
+      lCustomer.Insert;
+      lID := lCustomer.ID;
+    finally
+      lCustomer.Free;
+    end;
+  
+    lCustomer := TMVCActiveRecord.GetByPK<TCustomer>(lID);
+    try
+      Assert('Google Inc.' = 
+      	lCustomer.Attributes['CompanyName']
+      		.AsType<NullableString>().Value);
+      Assert('Montain View, CA' = 	
+      	lCustomer.Attributes['City'].AsString);
+      Assert('XX123' = 
+      	lCustomer.Attributes['Code']
+      		.AsType<NullableString>().Value);
+      Assert('Hello there!' = 
+      	lCustomer.Attributes['Note'].AsString);
+      lCustomer.Update;
+    finally
+      lCustomer.Free;
+    end;
+  ```
+
 ## Roadmap
+
 DelphiMVCFramework roadmap is always updated as-soon-as the features planned are implemented. Check the roadmap [here](roadmap.md).
 
 ## Trainings, consultancy or custom development service

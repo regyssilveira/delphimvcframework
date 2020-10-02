@@ -5,6 +5,7 @@ program DMVCFrameworkTests;
 {$APPTYPE CONSOLE}
 {$ENDIF}{$ENDIF}{$STRONGLINKTYPES ON}
 
+
 uses
   System.SysUtils,
   {$IFDEF GUI_TESTRUNNER}
@@ -14,7 +15,6 @@ uses
   {$IFDEF CONSOLE_TESTRUNNER}
   DUnitX.Loggers.Console,
   {$ENDIF }
-  DUnitX.Loggers.Xml.NUnit,
   DUnitX.TestFramework,
   FrameworkTestsU in 'FrameworkTestsU.pas',
   LiveServerTestU in 'LiveServerTestU.pas',
@@ -41,17 +41,19 @@ uses
   MVCFramework.Tests.Serializer.Intf in '..\..\common\MVCFramework.Tests.Serializer.Intf.pas',
   MVCFramework.Serializer.JsonDataObjects.OptionalCustomTypes in '..\..\..\sources\MVCFramework.Serializer.JsonDataObjects.OptionalCustomTypes.pas',
   ActiveRecordTestsU in 'ActiveRecordTestsU.pas',
-  TestConstsU in 'TestConstsU.pas';
+  TestConstsU in 'TestConstsU.pas',
+  MVCFramework.RESTClient in '..\..\..\sources\MVCFramework.RESTClient.pas';
 
 {$R *.RES}
 {$IFDEF CONSOLE_TESTRUNNER}
+
 
 procedure MainConsole();
 var
   runner: ITestRunner;
   results: IRunResults;
   logger: ITestLogger;
-//  nunitLogger: ITestLogger;
+  // nunitLogger: ITestLogger;
 begin
   try
     // Check command line options, will exit if invalid
@@ -90,13 +92,16 @@ end;
 {$ENDIF}
 {$IFDEF GUI_TESTRUNNER}
 
+
 procedure MainGUI;
 begin
   Application.Initialize;
   Application.CreateForm(TGUIVCLTestRunner, GUIVCLTestRunner);
+  // Application.CreateForm(TGUIXTestRunner, GUIXTestRunner);
   Application.Run;
 end;
 {$ENDIF}
+
 
 begin
   ReportMemoryLeaksOnShutdown := True;

@@ -455,6 +455,8 @@ begin
                 AJsonObject.A[AName].Add(AValue.GetArrayElement(I).AsInt64);
               tkFloat:
                 AJsonObject.A[AName].Add(AValue.GetArrayElement(I).AsExtended);
+              tkEnumeration:
+                AJsonObject.A[AName].Add(AValue.GetArrayElement(I).AsBoolean);
               tkClass:
                 begin
                   Obj := AValue.GetArrayElement(I).AsObject;
@@ -504,6 +506,7 @@ var
   lObj: TObject;
   lJSONValue: TJsonBaseObject;
   lJsonDataType: TJsonDataType;
+  lLinks: IMVCLinks;
 begin
   Result := nil;
   try
@@ -569,7 +572,9 @@ begin
       begin
         Result := TJsonObject.Create;
         AJsonDataType := jdtObject;
-        ObjectToJsonObject(AObject, TJsonObject(Result), GetSerializationType(AObject, AType), AIgnoredAttributes);
+        lLinks := TMVCLinks.Create;
+        InternalObjectToJsonObject(AObject, TJsonObject(Result), GetSerializationType(AObject, AType), AIgnoredAttributes,
+          ASerializationAction, lLinks, nil);
       end;
     end;
   except
@@ -984,6 +989,7 @@ var
   lIntArr: TArray<Integer>;
   lLongArr: TArray<Int64>;
   lDoubleArr: TArray<Double>;
+  lBoolArr: TArray<Boolean>;
 begin
   for I := 0 to Pred(AJsonArray.Count) do
   begin
@@ -996,6 +1002,8 @@ begin
         lLongArr := lLongArr + [AJsonArray.Items[I].LongValue];
       jdtFloat:
         lDoubleArr := lDoubleArr + [AJsonArray.Items[I].FloatValue];
+      jdtBool:
+        lBoolArr := lBoolArr + [AJsonArray.Items[I].BoolValue];
     end;
   end;
 
@@ -1005,6 +1013,8 @@ begin
     Result := TValue.From < TArray < Integer >> (lIntArr)
   else if Length(lLongArr) > 0 then
     Result := TValue.From < TArray < Int64 >> (lLongArr)
+  else if Length(lBoolArr) > 0 then
+    Result := TValue.From < TArray < Boolean >> (lBoolArr)
   else
     Result := TValue.From < TArray < Double >> (lDoubleArr);
 end;

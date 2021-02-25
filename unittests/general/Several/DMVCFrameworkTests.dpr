@@ -1,28 +1,24 @@
 program DMVCFrameworkTests;
 
-{$IFNDEF TESTINSIGHT}
-{$IFNDEF GUI_TESTRUNNER}
+{$IFDEF CONSOLE_TESTRUNNER}
 {$APPTYPE CONSOLE}
-{$ENDIF}{$ENDIF}{$STRONGLINKTYPES ON}
-
+{$ENDIF}
+{$STRONGLINKTYPES ON}
 
 uses
   System.SysUtils,
-  {$IFDEF GUI_TESTRUNNER}
-  Vcl.Forms,
-  DUnitX.Loggers.GUI.Vcl,
-  {$ENDIF }
+  DUnitX.TestFramework,
   {$IFDEF CONSOLE_TESTRUNNER}
   DUnitX.Loggers.Console,
   {$ENDIF }
-  DUnitX.TestFramework,
+  {$IFDEF TESTINSIGHT}
+  TestInsight.DUnitX,
+  {$ENDIF }
   FrameworkTestsU in 'FrameworkTestsU.pas',
   LiveServerTestU in 'LiveServerTestU.pas',
   BOs in 'BOs.pas',
   TestServerControllerU in '..\TestServer\TestServerControllerU.pas',
   RESTAdapterTestsU in 'RESTAdapterTestsU.pas',
-  MVCFramework.Tests.WebModule2 in '..\StandaloneServer\MVCFramework.Tests.WebModule2.pas' {TestWebModule2: TWebModule},
-  MVCFramework.Tests.StandaloneServer in '..\StandaloneServer\MVCFramework.Tests.StandaloneServer.pas',
   MVCFramework.Tests.WebModule1 in '..\RESTClient\MVCFramework.Tests.WebModule1.pas' {TestWebModule1: TWebModule},
   MVCFramework.Tests.RESTClient in '..\RESTClient\MVCFramework.Tests.RESTClient.pas',
   MVCFramework.Tests.AppController in '..\RESTClient\MVCFramework.Tests.AppController.pas',
@@ -42,11 +38,24 @@ uses
   MVCFramework.Serializer.JsonDataObjects.OptionalCustomTypes in '..\..\..\sources\MVCFramework.Serializer.JsonDataObjects.OptionalCustomTypes.pas',
   ActiveRecordTestsU in 'ActiveRecordTestsU.pas',
   TestConstsU in 'TestConstsU.pas',
-  MVCFramework.RESTClient in '..\..\..\sources\MVCFramework.RESTClient.pas';
+  MVCFramework.RESTClient.Indy in '..\..\..\sources\MVCFramework.RESTClient.Indy.pas',
+  MVCFramework.RESTClient.Intf in '..\..\..\sources\MVCFramework.RESTClient.Intf.pas',
+  MVCFramework.RESTClient.Commons in '..\..\..\sources\MVCFramework.RESTClient.Commons.pas',
+  MVCFramework.RESTClient in '..\..\..\sources\MVCFramework.RESTClient.pas',
+  PGUtilsU in 'PGUtilsU.pas',
+  MVCFramework.ActiveRecord in '..\..\..\sources\MVCFramework.ActiveRecord.pas',
+  MVCFramework.ActiveRecordController in '..\..\..\sources\MVCFramework.ActiveRecordController.pas',
+  ActiveRecordControllerTestU in 'ActiveRecordControllerTestU.pas',
+  WebModuleU in 'webmodules\WebModuleU.pas' {MyWebModule: TWebModule},
+  FDConnectionConfigU in 'webmodules\FDConnectionConfigU.pas',
+  StandaloneServerTestU in '..\StandaloneServer\StandaloneServerTestU.pas',
+  StandAloneServerWebModuleTest in '..\StandaloneServer\StandAloneServerWebModuleTest.pas' {TestWebModule2: TWebModule},
+  MVCFramework.Commons in '..\..\..\sources\MVCFramework.Commons.pas',
+  MVCFramework.Serializer.JsonDataObjects.CustomTypes in '..\..\..\sources\MVCFramework.Serializer.JsonDataObjects.CustomTypes.pas';
 
 {$R *.RES}
-{$IFDEF CONSOLE_TESTRUNNER}
 
+{$IFDEF CONSOLE_TESTRUNNER}
 
 procedure MainConsole();
 var
@@ -90,26 +99,13 @@ begin
   end;
 end;
 {$ENDIF}
-{$IFDEF GUI_TESTRUNNER}
-
-
-procedure MainGUI;
-begin
-  Application.Initialize;
-  Application.CreateForm(TGUIVCLTestRunner, GUIVCLTestRunner);
-  // Application.CreateForm(TGUIXTestRunner, GUIXTestRunner);
-  Application.Run;
-end;
-{$ENDIF}
-
 
 begin
   ReportMemoryLeaksOnShutdown := True;
-{$IFDEF CONSOLE_TESTRUNNER}
+{$IF Defined(CONSOLE_TESTRUNNER)}
   MainConsole();
-{$ENDIF}
-{$IFDEF GUI_TESTRUNNER}
-  MainGUI();
+{$else}
+  TestInsight.DUnitX.RunRegisteredTests();
 {$ENDIF}
 
 end.

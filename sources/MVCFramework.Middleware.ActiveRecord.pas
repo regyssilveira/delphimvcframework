@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2020 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2021 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -92,6 +92,12 @@ procedure TMVCActiveRecordMiddleware.EnsureConnection;
 begin
   if fConnectionLoaded then
   begin
+    Exit;
+  end;
+
+  if fConnectionDefFileName.IsEmpty then
+  begin
+    fConnectionLoaded := True;
     Exit;
   end;
 

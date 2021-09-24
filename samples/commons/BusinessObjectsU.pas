@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2020 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2021 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -61,6 +61,7 @@ type
     property DOB: TDate read FDOB write SetDOB;
     property Married: boolean read FMarried write SetMarried;
     constructor Create; virtual;
+    destructor Destroy; override;
     class function GetNew(AFirstName, ALastName: string; ADOB: TDate; AMarried: boolean): TPerson;
     class function GetList(const aCount: Integer = 3): TObjectList<TPerson>;
   end;
@@ -268,6 +269,28 @@ type
   end;
 
   [MVCNameCase(ncLowerCase)]
+  TProgrammerEx = class(TProgrammer)
+  private
+    [MVCOwned] //required only for field serialization
+    FMentor: TProgrammerEx;
+  public
+    destructor Destroy; override;
+    [MVCOwned] //required only for property serialization
+    property Mentor: TProgrammerEx read FMentor write fMentor;
+  end;
+
+  [MVCNameCase(ncLowerCase)]
+  TProgrammerEx2 = class(TProgrammer)
+  private
+    FMentor: TProgrammer;
+  public
+    destructor Destroy; override;
+    [MVCOwned(TProgrammerEx2)]
+    property Mentor: TProgrammer read FMentor write fMentor;
+  end;
+
+
+  [MVCNameCase(ncLowerCase)]
   TPhilosopher = class(TPerson)
   private
     FMentors: string;
@@ -303,6 +326,12 @@ constructor TPerson.Create;
 begin
   inherited Create;
   fID := 1000 + Random(1000);
+end;
+
+destructor TPerson.Destroy;
+begin
+
+  inherited;
 end;
 
 function TPerson.Equals(Obj: TObject): boolean;
@@ -650,6 +679,22 @@ begin
     raise Exception.Create('DataSet Already Initialized');
   end;
   fPeople := Value;
+end;
+
+{ TProgrammerEx }
+
+destructor TProgrammerEx.Destroy;
+begin
+  FMentor.Free;
+  inherited;
+end;
+
+{ TProgrammerEx2 }
+
+destructor TProgrammerEx2.Destroy;
+begin
+  FMentor.Free;
+  inherited;
 end;
 
 initialization

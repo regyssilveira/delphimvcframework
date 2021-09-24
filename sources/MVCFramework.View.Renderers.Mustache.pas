@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2020 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2021 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -27,10 +27,9 @@ unit MVCFramework.View.Renderers.Mustache;
 {$IFDEF LINUX}
 This unit is not compatible with Linux
 {$ENDIF}
+  interface
 
-interface
-
-uses
+  uses
   MVCFramework, System.SysUtils,
   MVCFramework.Commons, System.IOUtils, System.Classes, Data.DB;
 
@@ -54,9 +53,12 @@ uses
   SynCommons,
   MVCFramework.Serializer.Defaults,
   MVCFramework.Serializer.Intf,
-  MVCFramework.DuckTyping;
+  MVCFramework.DuckTyping,
+  MVCFramework.Serializer.JsonDataObjects.OptionalCustomTypes,
+  MVCFramework.Serializer.JsonDataObjects;
 
 {$WARNINGS OFF}
+
 
 type
   TSynMustacheAccess = class(TSynMustache)
@@ -101,7 +103,6 @@ begin
   end;
 end;
 
-
 {$WARNINGS ON}
 
 
@@ -115,11 +116,13 @@ var
   lJSON: string;
   lSer: IMVCSerializer;
 begin
+  {TODO -oDanieleT -cGeneral : Quite inefficient to generate JSON in this way. Why don't use a JSONObject directly?}
   if (FJSONModel <> '{}') and (not FJSONModel.IsEmpty) then
     Exit;
   FJSONModel := '{}';
 
-  lSer := GetDefaultSerializer;
+  lSer := TMVCJsonDataObjectsSerializer.Create;
+  RegisterOptionalCustomTypesSerializers(lSer);
   lSJSON := '{';
   lFirst := True;
 

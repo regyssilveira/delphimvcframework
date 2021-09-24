@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2020 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2021 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -82,7 +82,6 @@ type
     FControllers: TObjectList<TMVCControllerDelegate>;
     FMVCActionParamsCache: TMVCStringObjectDictionary<TMVCActionParamCacheItem>;
     FConfig: TMVCConfig;
-
   public
     [SetUp]
     procedure SetUp;
@@ -103,6 +102,18 @@ type
     [Test]
     [Category('issues')]
     procedure Test_ISSUE_338;
+    [Test]
+    [Category('issues')]
+    procedure Test_ISSUE_513_A;
+    [Test]
+    [Category('issues')]
+    procedure Test_ISSUE_513_B;
+    [Test]
+    [Category('issues')]
+    procedure Test_ISSUE_513_C;
+    [Test]
+    [Category('issues')]
+    procedure Test_ISSUE_492;
     [Test]
     procedure TestProduceRoutings;
     [Test]
@@ -214,6 +225,18 @@ type
     [TestCase('UpperCaseWithUnderline', 'ONE_TWO,one_two')]
     [TestCase('PascalCase', 'OneTwo,one_two')]
     [TestCase('CamelCase', 'oneTwo,one_two')]
+    [TestCase('UPPERLower1', 'ONETwo,one_two')]
+    [TestCase('UPPERLower2', 'OneTWOThree,one_two_three')]
+    [TestCase('UPPERLower3', 'DATEOf,date_of')]
+    [TestCase('UPPERLower4', 'RESTClient,rest_client')]
+    [TestCase('UPPERLowerWithNumber1', 'OneTWO01,one_two_01')]
+    [TestCase('UPPERLowerWithNumber2', 'ONE02Three,one_02_three')]
+    [TestCase('WithSpaces1', 'One two three,one_two_three')]
+    [TestCase('WithSpaces2', 'One  two  three,one_two_three')]
+    [TestCase('WithSpaces3', 'One   two   three,one_two_three')]
+    [TestCase('WithDots1', 'One.two.three,one_two_three')]
+    [TestCase('WithDots2', 'ONE.TWO.THREE,one_two_three')]
+    [TestCase('WithDots3', 'ONE.02.THREE,one_02_three')]
     [TestCase('WithUnderlines', 'One_two_three,one_two_three')]
     [TestCase('MultipleUnderlines', 'One___two______three,one_two_three')]
     [TestCase('WithNumber1', 'OneTwo1,one_two_1')]
@@ -245,9 +268,14 @@ type
   TTestUTC = class(TObject)
   public
     [Test]
-    // [Category('this')]
     procedure TestStringToDateTime_Local;
+    [Test]
+    procedure TestStringToDateTime_in_DST_period;
+    [Test]
+    procedure TestStringToDateTime_in_no_DST_period;
+    [Test]
     procedure TestStringToDateTime_NewYork;
+    [Test]
     procedure TestStringToDateTime_Mumbai;
   end;
 
@@ -521,6 +549,89 @@ begin
     Params.Free;
   end;
 end;
+
+procedure TTestRouting.Test_ISSUE_492;
+var
+  Params: TMVCRequestParamsTable;
+  ResponseContentType: string;
+  ResponseContentEncoding: string;
+begin
+  // https://github.com/danieleteti/delphimvcframework/issues/492
+  Params := TMVCRequestParamsTable.Create;
+  try
+    Params.Clear;
+    Assert.isTrue(FRouter.ExecuteRouting('/issue492/delphi$mvc$framework', httpGET, 'text/plain', 'text/plain',
+      FControllers, 'text/plain', TMVCMediaType.TEXT_PLAIN, '', Params, ResponseContentType, ResponseContentEncoding));
+    Assert.areEqual('GetIssue492', FRouter.MethodToCall.Name);
+    Assert.areEqual(1, Params.Count);
+    Assert.areEqual('delphi$mvc$framework', Params['stringvalue']);
+  finally
+    Params.Free;
+  end;
+end;
+
+procedure TTestRouting.Test_ISSUE_513_A;
+var
+  Params: TMVCRequestParamsTable;
+  ResponseContentType: string;
+  ResponseContentEncoding: string;
+begin
+  // https://github.com/danieleteti/delphimvcframework/issues/513
+  Params := TMVCRequestParamsTable.Create;
+  try
+    Params.Clear;
+    Assert.isTrue(FRouter.ExecuteRouting('/patient/$match', httpGET, 'text/plain', 'text/plain',
+      FControllers, 'text/plain', TMVCMediaType.TEXT_PLAIN, '', Params, ResponseContentType, ResponseContentEncoding));
+    Assert.areEqual('GetOrderIssue513', FRouter.MethodToCall.Name);
+    Assert.areEqual(0, Params.Count);
+  finally
+    Params.Free;
+  end;
+
+end;
+
+procedure TTestRouting.Test_ISSUE_513_B;
+var
+  Params: TMVCRequestParamsTable;
+  ResponseContentType: string;
+  ResponseContentEncoding: string;
+begin
+  // https://github.com/danieleteti/delphimvcframework/issues/513
+  Params := TMVCRequestParamsTable.Create;
+  try
+    Assert.isTrue(FRouter.ExecuteRouting('/patient/$match/daniele/teti', httpGET, 'text/plain', 'text/plain', FControllers,
+      'text/plain', TMVCMediaType.TEXT_PLAIN, '', Params, ResponseContentType, ResponseContentEncoding));
+    Assert.areEqual('GetOrderIssue513WithPars', FRouter.MethodToCall.Name);
+    Assert.areEqual(2, Params.Count);
+    Assert.areEqual('daniele', Params['par1']);
+    Assert.areEqual('teti', Params['par2']);
+  finally
+    Params.Free;
+  end;
+
+end;
+
+procedure TTestRouting.Test_ISSUE_513_C;
+var
+  Params: TMVCRequestParamsTable;
+  ResponseContentType: string;
+  ResponseContentEncoding: string;
+begin
+  // https://github.com/danieleteti/delphimvcframework/issues/513
+  Params := TMVCRequestParamsTable.Create;
+  try
+    Assert.isTrue(FRouter.ExecuteRouting('/patient/$match/da$niele/te$ti', httpGET, 'text/plain', 'text/plain', FControllers,
+      'text/plain', TMVCMediaType.TEXT_PLAIN, '', Params, ResponseContentType, ResponseContentEncoding));
+    Assert.areEqual('GetOrderIssue513WithPars', FRouter.MethodToCall.Name);
+    Assert.areEqual(2, Params.Count);
+    Assert.areEqual('da$niele', Params['par1']);
+    Assert.areEqual('te$ti', Params['par2']);
+  finally
+    Params.Free;
+  end;
+
+end;
+
 
 // procedure TTestMappers.TestDataSetToJSONArray;
 // var
@@ -1944,18 +2055,55 @@ end;
 
 procedure TTestUTC.TestStringToDateTime_Local;
 var
-  lDate: TDateTime;
+  lDate, lDateToCompare: TDateTime;
+  s1,s2: string;
 begin
   // Local time
   lDate := ISOTimeStampToDateTime('2020-11-04T12:12:12');
   Assert.areEqual<TDateTime>(EncodeDateTime(2020, 11, 4, 12, 12, 12, 0), lDate);
 
-  // UTC with no time zone
-  lDate := ISOTimeStampToDateTime('2020-11-04T12:12:12Z');
-  Assert.areEqual<TDateTime>(EncodeDateTime(2020, 11, 4, 12 + TTimeZone.Local.UtcOffset.Hours,
-    12 + TTimeZone.Local.UtcOffset.Minutes, 12, 0), lDate);
+  // UTC with no time zone (in a DST period)
+  lDate := ISOTimeStampToDateTime('2020-08-15T12:12:12Z');
+  lDateToCompare := TTimeZone.Local.ToLocalTime(EncodeDateTime(2020, 8, 15, 12, 12, 12, 0));
+  s1 := DateTimeToStr(lDate);
+  s2 := DateTimeToStr(lDateToCompare);
+  Assert.areEqual(s1,s2, 'UTC with no time zone (in DST period)');
 
+
+  // UTC with no time zone (in no DST period)
+  lDate := ISOTimeStampToDateTime('2020-11-04T12:12:12Z');
+  lDateToCompare := TTimeZone.Local.ToLocalTime(EncodeDateTime(2020, 11, 04, 12, 12, 12, 0));
+  s1 := DateTimeToStr(lDate);
+  s2 := DateTimeToStr(lDateToCompare);
+  Assert.areEqual(s1,s2, 'UTC with no time zone (in no DST period)');
 end;
+
+procedure TTestUTC.TestStringToDateTime_in_DST_period;
+var
+  lDate, lDateToCompare: TDateTime;
+  s1,s2: string;
+begin
+  // UTC with no time zone (in a DST period)
+  lDate := ISOTimeStampToDateTime('2020-08-15T12:12:12Z');
+  lDateToCompare := TTimeZone.Local.ToLocalTime(EncodeDateTime(2020, 8, 15, 12, 12, 12, 0));
+  s1 := DateTimeToStr(lDate);
+  s2 := DateTimeToStr(lDateToCompare);
+  Assert.areEqual(s1,s2, 'UTC with no time zone (in DST period)');
+end;
+
+procedure TTestUTC.TestStringToDateTime_in_no_DST_period;
+var
+  lDate, lDateToCompare: TDateTime;
+  s1,s2: string;
+begin
+  // UTC with no time zone (in no DST period)
+  lDate := ISOTimeStampToDateTime('2020-11-04T12:12:12Z');
+  lDateToCompare := TTimeZone.Local.ToLocalTime(EncodeDateTime(2020, 11, 04, 12, 12, 12, 0));
+  s1 := DateTimeToStr(lDate);
+  s2 := DateTimeToStr(lDateToCompare);
+  Assert.areEqual(s1,s2, 'UTC with no time zone (in no DST period)');
+end;
+
 
 procedure TTestUTC.TestStringToDateTime_Mumbai;
 var
@@ -2032,9 +2180,7 @@ end;
 procedure TTestLRUCache.TestPutGet_Check_No_AV;
 var
   lCache: TMVCLRUCache<TMyObject>;
-  I: Integer;
   lMyObj: TMyObject;
-  lItemIndex: UInt64;
   lProducer1, lProducer2, lProducer3, lProducer4: ITask;
   lProcProducer, lProcConsumer: TProc;
   lConsumer1, lConsumer2, lConsumer3, lConsumer4: ITask;

@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2020 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2021 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -79,6 +79,7 @@ const
   JSONRPC_ERR_INTERNAL_ERROR = -32603;
   JSONRPC_ERR_SERVER_ERROR_LOWERBOUND = -32099;
   JSONRPC_ERR_SERVER_ERROR_UPPERBOUND = -32000;
+  JSONRPC_USER_ERROR = JSONRPC_ERR_SERVER_ERROR_LOWERBOUND;
 
 type
   TJSONRPCHTTPVerb = (jrpcDefault, jrpcGET, jrpcPOST);
@@ -397,9 +398,10 @@ type
     [MVCHTTPMethods([httpGET])]
     procedure GetPublishedMethodList; virtual;
 
-    [MVCPath]
+    [MVCPath('/proxy')]
     [MVCHTTPMethods([httpGET])]
     procedure GetProxyCode; virtual;
+	
     constructor Create; overload; override;
     destructor Destroy; override;
   end;

@@ -5,6 +5,7 @@ program DMVCFrameworkTests;
 {$ENDIF}
 {$STRONGLINKTYPES ON}
 
+
 uses
   System.SysUtils,
   DUnitX.TestFramework,
@@ -51,18 +52,20 @@ uses
   StandaloneServerTestU in '..\StandaloneServer\StandaloneServerTestU.pas',
   StandAloneServerWebModuleTest in '..\StandaloneServer\StandAloneServerWebModuleTest.pas' {TestWebModule2: TWebModule},
   MVCFramework.Commons in '..\..\..\sources\MVCFramework.Commons.pas',
-  MVCFramework.Serializer.JsonDataObjects.CustomTypes in '..\..\..\sources\MVCFramework.Serializer.JsonDataObjects.CustomTypes.pas';
+  MVCFramework.Serializer.JsonDataObjects.CustomTypes in '..\..\..\sources\MVCFramework.Serializer.JsonDataObjects.CustomTypes.pas',
+  MVCFramework.SQLGenerators.Firebird in '..\..\..\sources\MVCFramework.SQLGenerators.Firebird.pas',
+  MVCFramework.Utils in '..\..\..\sources\MVCFramework.Utils.pas';
 
 {$R *.RES}
 
 {$IFDEF CONSOLE_TESTRUNNER}
+
 
 procedure MainConsole();
 var
   runner: ITestRunner;
   results: IRunResults;
   logger: ITestLogger;
-  // nunitLogger: ITestLogger;
 begin
   try
     // Check command line options, will exit if invalid
@@ -100,12 +103,17 @@ begin
 end;
 {$ENDIF}
 
+
 begin
   ReportMemoryLeaksOnShutdown := True;
 {$IF Defined(CONSOLE_TESTRUNNER)}
   MainConsole();
-{$else}
+{$ELSE}
+{$IF Defined(TESTINSIGHT)}
   TestInsight.DUnitX.RunRegisteredTests();
+{$ELSE}
+  raise Exception.Create('No Runner defined');
+{$ENDIF}
 {$ENDIF}
 
 end.

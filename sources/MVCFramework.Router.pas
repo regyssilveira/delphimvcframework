@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2020 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2021 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -91,15 +91,15 @@ type
       const aActionParamsCache: TMVCStringObjectDictionary<TMVCActionParamCacheItem>);
     destructor Destroy; override;
     function ExecuteRouting(const ARequestPathInfo: string;
-  const ARequestMethodType: TMVCHTTPMethodType;
-  const ARequestContentType, ARequestAccept: string;
-  const AControllers: TObjectList<TMVCControllerDelegate>;
-  const ADefaultContentType: string;
-  const ADefaultContentCharset: string;
-  const APathPrefix: string;
-  var ARequestParams: TMVCRequestParamsTable;
-  out AResponseContentMediaType: string;
-  out AResponseContentCharset: string): Boolean;
+      const ARequestMethodType: TMVCHTTPMethodType;
+      const ARequestContentType, ARequestAccept: string;
+      const AControllers: TObjectList<TMVCControllerDelegate>;
+      const ADefaultContentType: string;
+      const ADefaultContentCharset: string;
+      const APathPrefix: string;
+      var ARequestParams: TMVCRequestParamsTable;
+      out AResponseContentMediaType: string;
+      out AResponseContentCharset: string): Boolean;
     function GetQualifiedActionName: string; override;
 
     property MethodToCall: TRttiMethod read FMethodToCall;
@@ -110,7 +110,8 @@ type
 implementation
 
 uses
-  System.TypInfo;
+  System.TypInfo,
+  System.NetEncoding;
 
 { TMVCRouter }
 
@@ -179,7 +180,8 @@ begin
       LRequestPathInfo := '/' + LRequestPathInfo;
     end;
   end;
-  LRequestPathInfo := TIdURI.PathEncode(LRequestPathInfo);
+  //LRequestPathInfo := TNetEncoding.URL.EncodePath(LRequestPathInfo, [Ord('$')]);
+  LRequestPathInfo := TIdURI.PathEncode(LRequestPathInfo); //regression introduced in fix for issue 492
 
   TMonitor.Enter(gLock);
   try
@@ -207,7 +209,11 @@ begin
         LControllerMappedPath := '';
       end;
 
+{$IF defined(TOKYOORBETTER)}
       if not LRequestPathInfo.StartsWith(APathPrefix + LControllerMappedPath, True) then
+{$ELSE}
+      if not TMVCStringHelper.StartsWith(APathPrefix + LControllerMappedPath, LRequestPathInfo, True) then
+{$ENDIF}
       begin
         Continue;
       end;
@@ -348,7 +354,7 @@ begin
   else
   begin
     lRegEx := TRegEx.Create('^' + lCacheItem.Value + '$', [roIgnoreCase, roCompiled, roSingleLine]);
-    lMatch := lRegEx.match(APath);
+    lMatch := lRegEx.Match(APath);
     Result := lMatch.Success;
     if Result then
     begin

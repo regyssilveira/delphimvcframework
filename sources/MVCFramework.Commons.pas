@@ -117,7 +117,7 @@ type
     LAST_AUTHORIZATION_HEADER_VALUE = '__DMVC_LAST_AUTHORIZATION_HEADER_VALUE_';
     SSE_RETRY_DEFAULT = 100;
     SSE_LAST_EVENT_ID = 'Last-Event-ID';
-    URL_MAPPED_PARAMS_ALLOWED_CHARS = ' אטישעל''"@\[\]\{\}\(\)\=;&#\.:!\_,%\w\d\x2D\x3A';
+    URL_MAPPED_PARAMS_ALLOWED_CHARS = ' אטישעל''"@\[\]\{\}\(\)\=;&#\.:!\_,%\w\d\x2D\x3A\$';
     OneMiB = 1048576;
     OneKiB = 1024;
     DEFAULT_MAX_REQUEST_SIZE = OneMiB * 5; // 5 MiB
@@ -315,6 +315,11 @@ type
     /// the commands will also fail with 424 (Failed Dependency).
     /// </summary>
     FailedDependency = 424;
+    /// <summary>
+    /// The 429 (Too Many Requests) status code indicates the user has sent too many requests
+    /// in a given amount of time ("rate limiting").
+    /// </summary>
+    TooManyRequests = 429;
     // Server Error 5xx
     /// <summary>
     /// 500 Internal Server Error
@@ -590,6 +595,12 @@ type
     class function GuidFromString(const AGuidStr: string): TGUID; static;
   end;
 
+  TMVCStringHelper = record
+  public
+    class function StartsText(const ASubText, AText: string): Boolean; static;
+    class function StartsWith(const ASubText, AText: string; AIgnoreCase: Boolean): Boolean; static;
+  end;
+
   TMVCFieldsMapping = TArray<TMVCFieldMap>;
 
 {$SCOPEDENUMS ON}
@@ -629,9 +640,8 @@ procedure SplitContentMediaTypeAndCharset(const aContentType: string; var aConte
   var aContentCharSet: string);
 function BuildContentType(const aContentMediaType: string; const aContentCharSet: string): string;
 
-function StrToJSONObject(const aString: String): TJsonObject;
-function StrToJSONArray(const aString: String): TJsonArray;
-
+function StrToJSONObject(const aString: String; ARaiseExceptionOnError: Boolean = False): TJsonObject;
+function StrToJSONArray(const aString: String; ARaiseExceptionOnError: Boolean = False): TJsonArray;
 
 function WrapAsList(const AObject: TObject; AOwnsObject: Boolean = False): IMVCList;
 
@@ -668,18 +678,21 @@ type
   end;
 
 
-
 implementation
 
 uses
+
   IdCoder3to4,
   System.NetEncoding,
   System.Character,
-  MVCFramework.Serializer.JsonDataObjects, MVCFramework.Serializer.Commons,
+  MVCFramework.Serializer.JsonDataObjects,
+  MVCFramework.Serializer.Commons,
+  MVCFramework.Utils,
   System.RegularExpressions;
 
 var
   GlobalAppName, GlobalAppPath, GlobalAppExe: string;
+
 
 function URLEncode(const Value: string): string; overload;
 begin
@@ -1478,13 +1491,17 @@ var
   lLastWasUnderscore: Boolean;
   lIsUnderscore: Boolean;
   lLastWasNumber: Boolean;
+  lNextUnderscore: Boolean;
+  lLengthValue: Integer;
 begin
   lLastWasLowercase := False;
   lLastWasUnderscore := False;
   lLastWasNumber := False;
+  lNextUnderscore := False;
+  lLengthValue := Length(Value);
   lSB := TStringBuilder.Create;
   try
-    for I := 0 to Length(Value) - 1 do
+    for I := 0 to lLengthValue - 1 do
     begin
       C := Value.Chars[I];
       lIsUpperCase := CharInSet(C, ['A' .. 'Z']);
@@ -1492,21 +1509,33 @@ begin
       lIsNumber := CharInSet(C, ['0' .. '9']);
       lIsUnderscore := C = '_';
 
-      if (I > 0) and (not lLastWasUnderscore) and
-        ((lIsUpperCase and (lLastWasLowercase or lLastWasNumber)) or
-        (lIsLowerCase and lLastWasNumber) or
-        (lIsNumber and (not lLastWasNumber)))  then
+      if not (lIsUpperCase or lIsLowerCase or lIsNumber or lIsUnderscore) then
       begin
-        lSB.Append('_');
-      end;
+        lNextUnderscore := True;
+        Continue;
+      end
+      else
+      begin
+        if (I > 0) and (not lLastWasUnderscore) and
+          (lNextUnderscore or
+          (lIsUpperCase and (lLastWasLowercase or lLastWasNumber)) or
+          (lIsLowerCase and lLastWasNumber) or
+          (lIsNumber and (not lLastWasNumber)) or
+          (lIsUpperCase and (not lLastWasLowercase) and ((I + 1) <= (lLengthValue - 1)) and
+          CharInSet(Value.Chars[I + 1], ['a' .. 'z']))) then
+        begin
+          lSB.Append('_');
+        end;
 
-      if not (lLastWasUnderscore and lIsUnderscore) then
-      begin
-        lSB.Append(LowerCase(C));
+        if not (lLastWasUnderscore and lIsUnderscore) then
+        begin
+          lSB.Append(LowerCase(C));
+        end;
+        lLastWasUnderscore := lIsUnderscore or lNextUnderscore;
+        lLastWasLowercase := lIsLowerCase;
+        lLastWasNumber := lIsNumber;
+        lNextUnderscore := False;
       end;
-      lLastWasUnderscore := lIsUnderscore;
-      lLastWasLowercase := lIsLowerCase;
-      lLastWasNumber := lIsNumber;
     end;
     Result := lSB.ToString;
   finally
@@ -1514,20 +1543,50 @@ begin
   end;
 end;
 
-function StrToJSONObject(const aString: String): TJsonObject;
+function StrToJSONObject(const aString: String; ARaiseExceptionOnError: Boolean = False): TJsonObject;
 begin
-  Result := MVCFramework.Serializer.JSONDataObjects.StrToJSONObject(aString);
+  Result := MVCFramework.Utils.StrToJSONObject(aString, ARaiseExceptionOnError);
 end;
 
-function StrToJSONArray(const aString: String): TJsonArray;
+function StrToJSONArray(const aString: String; ARaiseExceptionOnError: Boolean = False): TJsonArray;
 begin
-  Result := MVCFramework.Serializer.JSONDataObjects.StrToJSONArray(aString);
+  Result := MVCFramework.Utils.StrToJSONArray(aString, ARaiseExceptionOnError);
 end;
-
 
 function WrapAsList(const AObject: TObject; AOwnsObject: Boolean = False): IMVCList;
 begin
-  Result := MVCFramework.DuckTyping.WrapAsList(AObject, AOwnsObject);
+  Result := MVCFramework.Utils.WrapAsList(AObject, AOwnsObject);
+end;
+
+{ TMVCStringHelper }
+
+class function TMVCStringHelper.StartsText(const ASubText, AText: string): Boolean;
+begin
+  if ASubText = EmptyStr then
+    Result := True
+  else
+  begin
+    if (AText.Length >= ASubText.Length) then
+      Result := AnsiStrLIComp(PChar(ASubText), PChar(AText), ASubText.Length) = 0
+    else
+      Result := False;
+  end;
+end;
+
+class function TMVCStringHelper.StartsWith(const ASubText, AText: string; AIgnoreCase: Boolean): Boolean;
+begin
+  if AIgnoreCase then
+    Result := StartsText(ASubText, AText)
+  else
+  if ASubText = EmptyStr then
+    Result := True
+  else
+  begin
+    if (AText.Length >= ASubText.Length) then
+      Result := CompareStr(AText.Substring(0, ASubText.Length), ASubText) = 0
+    else
+      Result := False;
+  end;
 end;
 
 initialization

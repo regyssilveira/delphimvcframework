@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2020 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2021 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -357,7 +357,7 @@ var
   lPathComparer: IComparer<TSwagPath>;
   lOperationComparer: IComparer<TSwagPathOperation>;
   lSwagPath: TSwagPath;
-{$IF not defined(TOKYOORBETTER)}
+{$IF not defined(RIOORBETTER)}
   lSwagPathList: TArray<TSwagPath>;
   lSwagOperationList: TArray<TSwagPathOperation>;
 {$ENDIF}
@@ -382,7 +382,7 @@ begin
       end;
     end);
 
-{$IF defined(TOKYOORBETTER)}
+{$IF defined(RIOORBETTER)}
   ASwagDoc.Paths.Sort(lPathComparer);
 {$ELSE}
   ASwagDoc.Paths.TrimExcess;
@@ -408,7 +408,7 @@ begin
 
   for lSwagPath in ASwagDoc.Paths do
   begin
-{$IF defined(TOKYOORBETTER)}
+{$IF defined(RIOORBETTER)}
     lSwagPath.Operations.Sort(lOperationComparer);
 {$ELSE}
     lSwagPath.Operations.TrimExcess;

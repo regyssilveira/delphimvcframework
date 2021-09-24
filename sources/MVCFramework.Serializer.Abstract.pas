@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2020 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2021 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -54,10 +54,11 @@ type
     function GetNameAs(const AOwner: TComponent; const AComponentName: string; const ADefaultValue: string): string;
     function IsIgnoredAttribute(const AAttributes: TMVCIgnoredList; const AName: string): Boolean;
     function IsIgnoredComponent(const AOwner: TComponent; const AComponentName: string): Boolean;
-    function GetObjectTypeOfGenericList(const ATypeInfo: PTypeInfo): TClass;
   public
     function GetTypeSerializers: TDictionary<PTypeInfo, IMVCTypeSerializer>;
     procedure RegisterTypeSerializer(const ATypeInfo: PTypeInfo; AInstance: IMVCTypeSerializer);
+    function GetObjectTypeOfGenericList(const ATypeInfo: PTypeInfo; out ARttiType: TRttiType): Boolean; overload;
+    function GetObjectTypeOfGenericList(const ATypeInfo: PTypeInfo): TClass; overload;
     constructor Create(const Config: TMVCConfig); overload;
     constructor Create; overload;
     destructor Destroy; override;
@@ -160,6 +161,19 @@ begin
 end;
 
 function TMVCAbstractSerializer.GetObjectTypeOfGenericList(const ATypeInfo: PTypeInfo): TClass;
+var
+  LRttiType: TRttiType;
+begin
+  if not GetObjectTypeOfGenericList(ATypeInfo, LRttiType) then
+    Exit(nil);
+
+  if LRttiType.IsInstance then
+    Result := LRttiType.AsInstance.MetaclassType
+  else
+    Result := nil;
+end;
+
+function TMVCAbstractSerializer.GetObjectTypeOfGenericList(const ATypeInfo: PTypeInfo; out ARttiType: TRttiType): Boolean;
 
   function ExtractGenericArguments(ATypeInfo: PTypeInfo): string;
   var
@@ -197,11 +211,13 @@ begin
   LGetEnumerator := GetRttiContext.GetType(ATypeInfo).GetMethod('GetEnumerator');
   if not Assigned(LGetEnumerator) then
   begin
-    Exit(nil);
+    ARttiType := nil;
+    Exit(False);
   end;
 
   LType := ExtractGenericArguments(LGetEnumerator.ReturnType.Handle);
-  Result := GetRttiContext.FindType(LType).AsInstance.MetaclassType;
+  ARttiType := GetRttiContext.FindType(LType);
+  Result := True;
 end;
 
 function TMVCAbstractSerializer.GetRttiContext: TRttiContext;

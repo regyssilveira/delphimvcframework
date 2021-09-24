@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2020 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2021 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -252,6 +252,7 @@ type
     FHMACAlgorithm: string;
     FRegClaimsToChecks: TJWTCheckableClaims;
     FLeewaySeconds: Cardinal;
+    FData: TObject; //the jwt middleware will inject TMVCWebRequest here
     procedure SetHMACAlgorithm(const Value: string);
     procedure SetChecks(const Value: TJWTCheckableClaims);
     function CheckExpirationTime(Payload: TJDOJSONObject; out Error: string): Boolean;
@@ -265,6 +266,7 @@ type
     destructor Destroy; override;
     function GetToken: string;
     function LoadToken(const Token: string; out Error: string): Boolean;
+    property Data: TObject read fData write fData;
     property Claims: TJWTRegisteredClaims read FRegisteredClaims;
     property CustomClaims: TJWTCustomClaims read FCustomClaims;
     property HMACAlgorithm: string read FHMACAlgorithm write SetHMACAlgorithm;

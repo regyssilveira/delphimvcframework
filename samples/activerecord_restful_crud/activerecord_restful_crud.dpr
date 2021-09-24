@@ -25,7 +25,8 @@ uses
   MVCFramework.ActiveRecord in '..\..\sources\MVCFramework.ActiveRecord.pas',
   EntitiesProcessors in 'EntitiesProcessors.pas',
   FDConnectionConfigU in '..\activerecord_showcase\FDConnectionConfigU.pas',
-  OtherControllerU in 'OtherControllerU.pas';
+  OtherControllerU in 'OtherControllerU.pas',
+  MVCFramework.SysControllers in '..\..\sources\MVCFramework.SysControllers.pas';
 
 {$R *.res}
 
@@ -80,13 +81,7 @@ begin
   lServer := TIdHTTPWebBrokerBridge.Create(nil);
   try
     lServer.DefaultPort := APort;
-
-    { more info about MaxConnections
-      http://www.indyproject.org/docsite/html/frames.html?frmname=topic&frmfile=TIdCustomTCPServer_MaxConnections.html }
     lServer.MaxConnections := 0;
-
-    { more info about ListenQueue
-      http://www.indyproject.org/docsite/html/frames.html?frmname=topic&frmfile=TIdCustomTCPServer_ListenQueue.html }
     lServer.ListenQueue := 200;
 
     Writeln('Write "quit" or "exit" to shutdown the server');

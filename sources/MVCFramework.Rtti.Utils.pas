@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2020 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2021 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -785,7 +785,9 @@ begin
     end;
   end
   else
-    raise Exception.Create('Cannot find a propert constructor for ' + ARttiType.ToString);
+  begin
+    raise Exception.Create('Cannot find a parameterless constructor for ' + ARttiType.ToString);
+  end;
 
   { Second solution, dirty and fast }
   // Result := TObject(ARttiType.GetMethod('Create')

@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2021 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2022 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -48,7 +48,7 @@ uses
 
 type
 
-  TMVCHTTPMethodType = (httpGET, httpPOST, httpPUT, httpDELETE, httpHEAD, httpOPTIONS, httpPATCH,
+  TMVCHTTPMethodType = (httpGET, httpPOST, httpPUT, httpDELETE, httpPATCH, httpHEAD, httpOPTIONS,
     httpTRACE);
 
   TMVCHTTPMethods = set of TMVCHTTPMethodType;
@@ -583,6 +583,7 @@ type
   TMVCFieldMap = record
     InstanceFieldName: string;
     DatabaseFieldName: string;
+    Alias: String; // allows to use "MVCNameAs" attribute in RQL queries
   end;
 
   TMVCCustomRouter = class abstract
@@ -592,7 +593,8 @@ type
 
   TMVCGuidHelper = record
   public
-    class function GuidFromString(const AGuidStr: string): TGUID; static;
+    class function StringToGUIDEx(const aGuidStr: string): TGUID; static; inline;
+    class function GUIDToStringEx(const aGuid: TGUID): string; static; inline;
   end;
 
   TMVCStringHelper = record
@@ -662,11 +664,16 @@ var
   gLock: TObject;
 
 const
-  RESERVED_IPS: array [1 .. 11] of array [1 .. 2] of string = (('0.0.0.0', '0.255.255.255'),
-    ('10.0.0.0', '10.255.255.255'), ('127.0.0.0', '127.255.255.255'),
+  RESERVED_IPv4: array [1 .. 11] of array [1 .. 2] of string = (
+    ('0.0.0.0', '0.255.255.255'),
+    ('10.0.0.0', '10.255.255.255'),
+    ('127.0.0.0', '127.255.255.255'),
     ('169.254.0.0', '169.254.255.255'),
-    ('172.16.0.0', '172.31.255.255'), ('192.0.2.0', '192.0.2.255'), ('192.88.99.0', '192.88.99.255'),
-    ('192.168.0.0', '192.168.255.255'), ('198.18.0.0', '198.19.255.255'),
+    ('172.16.0.0', '172.31.255.255'),
+    ('192.0.2.0', '192.0.2.255'),
+    ('192.88.99.0', '192.88.99.255'),
+    ('192.168.0.0', '192.168.255.255'),
+    ('198.18.0.0', '198.19.255.255'),
     ('224.0.0.0', '239.255.255.255'),
     ('240.0.0.0', '255.255.255.255'));
 
@@ -727,9 +734,15 @@ var
   IntIP: Cardinal;
 begin
   Result := False;
+  if Pos(':', AIP) > 0 then
+  begin
+    {TODO -oDanieleT -cGeneral : Support for IPv6 Reserved IP}
+    //https://www.iana.org/assignments/iana-ipv6-special-registry/iana-ipv6-special-registry.xhtml
+    Exit;
+  end;
   IntIP := IP2Long(AIP);
-  for I := low(RESERVED_IPS) to high(RESERVED_IPS) do
-    if (IntIP >= IP2Long(RESERVED_IPS[I][1])) and (IntIP <= IP2Long(RESERVED_IPS[I][2])) then
+  for I := low(RESERVED_IPv4) to high(RESERVED_IPv4) do
+    if (IntIP >= IP2Long(RESERVED_IPv4[I][1])) and (IntIP <= IP2Long(RESERVED_IPv4[I][2])) then
       Exit(True);
 end;
 
@@ -1404,25 +1417,32 @@ end;
 
 { TMVCGuidHelper }
 
-class function TMVCGuidHelper.GuidFromString(const AGuidStr: string): TGUID;
-var
-  LGuidStr: string;
+class function TMVCGuidHelper.GUIDToStringEx(const aGuid: TGUID): string;
 begin
-  if AGuidStr.Length = 32 then { string uuid without braces and dashes: ae502abe430bb23a28782d18d6a6e465 }
-  begin
-    LGuidStr := Format('{%s-%s-%s-%s-%s}', [AGuidStr.Substring(0, 8), AGuidStr.Substring(8, 4),
-      AGuidStr.Substring(12, 4), AGuidStr.Substring(16, 4), AGuidStr.Substring(20, 12)])
-  end
-  else if AGuidStr.Length = 36 then { string uuid without braces: ae502abe-430b-b23a-2878-2d18d6a6e465 }
-  begin
-    LGuidStr := Format('{%s}', [AGuidStr])
-  end
+  Result := aGuid.ToString.Substring(1, 36).ToLower; { UUID specification RFC 4122 - https://www.ietf.org/rfc/rfc4122.txt }
+end;
+
+class function TMVCGuidHelper.StringToGUIDEx(const aGuidStr: string): TGUID;
+var
+  lGuidStr: string;
+begin
+  case aGuidStr.Length of
+    32: { string uuid without braces and dashes: ae502abe430bb23a28782d18d6a6e465 }
+      begin
+        lGuidStr := Format('{%s-%s-%s-%s-%s}', [aGuidStr.Substring(0, 8), aGuidStr.Substring(8, 4),
+          aGuidStr.Substring(12, 4), aGuidStr.Substring(16, 4), aGuidStr.Substring(20, 12)]);
+      end;
+    36: { string uuid without braces: ae502abe-430b-b23a-2878-2d18d6a6e465 }
+      begin
+        lGuidStr := Format('{%s}', [aGuidStr])
+      end
   else
-  begin
-    LGuidStr := AGuidStr;
+    begin
+      lGuidStr := aGuidStr;
+    end;
   end;
 
-  Result := StringToGUID(LGuidStr);
+  Result := StringToGUID(lGuidStr);
 end;
 
 function CamelCase(const Value: string; const MakeFirstUpperToo: Boolean): string;
@@ -1594,6 +1614,7 @@ begin
       Result := False;
   end;
 end;
+
 
 initialization
 

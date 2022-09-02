@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2021 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2022 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -38,7 +38,8 @@ uses
 
 type
 
-  [MVCPath('/')]
+  [MVCPath]
+  [MVCPath('/donotusethis')]
   TTestServerController = class(TMVCController)
   private
     FFormatSettings: TFormatSettings;
@@ -143,6 +144,16 @@ type
     [MVCHTTPMethod([httpPOST])]
     [MVCProduces('application/json')]
     procedure TestCustomerEcho;
+
+    [MVCPath('/customerechobodyfor')]
+    [MVCHTTPMethod([httpPOST])]
+    [MVCProduces('application/json')]
+    procedure TestCustomerEchoBodyFor;
+
+    [MVCPath('/echowithallverbs')]
+    [MVCHTTPMethod([httpGET, httpPOST, httpPUT, httpDELETE, httpPATCH, httpTRACE])]
+    [MVCProduces('application/json')]
+    procedure TestWithAllVerbs;
 
     [MVCPath('/speed')]
     [MVCHTTPMethod([httpGET])]
@@ -263,6 +274,18 @@ type
     [MVCPath('/issue492/($stringvalue)')]
     procedure GetIssue492;
 
+    [MVCHTTPMethod([httpGET])]
+    [MVCPath('/issue542/($stringvalue)')]
+    procedure GetIssue542;
+
+    [MVCHTTPMethod([httpGET])]
+    [MVCPath('/issue552')]
+    procedure TestIssue552GUIDSupport;
+
+    [MVCHTTPMethod([httpPOST])]
+    [MVCPath('/guidserializationecho')]
+    procedure TestGUIDSerializationEcho;
+
     { injectable parameters }
     [MVCHTTPMethod([httpGET])]
     [MVCPath('/injectable10')]
@@ -316,6 +339,16 @@ type
     [MVCPath('/programmerex2')]
     procedure CreateProgrammerEx2(const [MVCFromBody] ProgrammerEx2: TProgrammerEx2);
 
+    [MVCHTTPMethod([httpGET])]
+    [MVCPath('/ignoredfieldstest')]
+    procedure RenderProgrammerWithIgnoredFields(
+      const [MVCFromQueryString('ignoredfieldscsv','')] IgnoredFieldsCSV: String);
+
+    [MVCHTTPMethod([httpGET])]
+    [MVCPath('/ignoredfieldstestdataset')]
+    procedure RenderDataSetWithIgnoredFields(
+      const [MVCFromQueryString('ignoredfieldscsv','')] IgnoredFieldsCSV: String);
+
     { templates }
     [MVCHTTPMethod([httpGET])]
     [MVCPath('/website/list')]
@@ -329,6 +362,10 @@ type
     [MVCHTTPMethod([httpGET])]
     [MVCPath('/issues/526')]
     procedure TestIssue526;
+
+    [MVCHTTPMethod([httpGET])]
+    [MVCPath('/issues/542')]
+    procedure TestIssue542;
   end;
 
   [MVCPath('/private')]
@@ -357,6 +394,17 @@ type
     [MVCPath]
     procedure NeverExecuted;
     constructor Create; override;
+  end;
+
+  [MVCPath]
+  [MVCPath('/api/v1')]
+  [MVCPath('/api/v2')]
+  TTestMultiPathController = class(TMVCController)
+  public
+    [MVCPath]
+    [MVCPath('/action1')]
+    [MVCPath('/action2')]
+    procedure Action1or2;
   end;
 
 implementation
@@ -510,6 +558,11 @@ begin
   // do nothing
 end;
 
+procedure TTestServerController.GetIssue542;
+begin
+  // do nothing
+end;
+
 procedure TTestServerController.GetProject;
 begin
   // do nothing
@@ -528,7 +581,7 @@ procedure TTestServerController.Logout;
 begin
   if not Context.SessionStarted then
     raise EMVCException.Create('Session not available');
-  Context.SessionStop(false);
+  Context.SessionStop;
   if Context.SessionStarted then
     raise EMVCException.Create('Session still available');
 end;
@@ -570,6 +623,36 @@ procedure TTestServerController.PostInject50(
   const People: TObjectList<TPerson>);
 begin
   Render<TPerson>(People, False);
+end;
+
+procedure TTestServerController.RenderDataSetWithIgnoredFields(
+  const IgnoredFieldsCSV: String);
+var
+  lDict: IMVCObjectDictionary;
+  lIgnoredFields: TMVCIgnoredList;
+begin
+  lIgnoredFields := TMVCIgnoredList(IgnoredFieldsCSV.Split([';',',']));
+  lDict := ObjectDict(True)
+    .Add('ncUpperCase_List', GetDataSet, nil, dstAllRecords, ncUpperCase, lIgnoredFields)
+    .Add('ncLowerCase_List', GetDataSet, nil, dstAllRecords, ncLowerCase, lIgnoredFields)
+    .Add('ncCamelCase_List', GetDataSet, nil, dstAllRecords, ncCamelCase, lIgnoredFields)
+    .Add('ncPascalCase_List', GetDataSet, nil, dstAllRecords, ncPascalCase, lIgnoredFields)
+    .Add('ncUpperCase_Single', GetDataSet, nil, dstSingleRecord, ncUpperCase, lIgnoredFields)
+    .Add('ncLowerCase_Single', GetDataSet, nil, dstSingleRecord, ncLowerCase, lIgnoredFields)
+    .Add('ncCamelCase_Single', GetDataSet, nil, dstSingleRecord, ncCamelCase, lIgnoredFields)
+    .Add('ncPascalCase_Single', GetDataSet, nil, dstSingleRecord, ncPascalCase, lIgnoredFields)
+    .Add('meta', StrDict(['page'], ['1']));
+  Render(lDict);
+end;
+
+procedure TTestServerController.RenderProgrammerWithIgnoredFields(
+  const IgnoredFieldsCSV: String);
+begin
+  Render(ObjectDict().Add(
+    'data',
+    TProgrammerEx.GetNew('Daniele','Teti', EncodeDate(1979,11,4),True),
+    nil,
+    TMVCIgnoredList(IgnoredFieldsCSV.Split([';',',']))))
 end;
 
 procedure TTestServerController.ReqWithParams;
@@ -625,6 +708,24 @@ begin
 {$ENDIF}
   // lCustomer.Logo.SaveToFile('pippo_server_after.bmp');
   Render(lCustomer, True);
+end;
+
+procedure TTestServerController.TestCustomerEchoBodyFor;
+var
+  lCustomer: TCustomer;
+begin
+  lCustomer := TCustomer.Create;
+  try
+    Context.Request.BodyFor<TCustomer>(lCustomer);
+    // lCustomer.Logo.SaveToFile('pippo_server_before.bmp');
+    lCustomer.Name := lCustomer.Name + ' changed';
+  {$IFNDEF LINUX}
+    //lCustomer.Logo.Canvas.TextOut(10, 10, 'Changed');
+  {$ENDIF}
+    Render(lCustomer, False);
+  finally
+    lCustomer.Free;
+  end;
 end;
 
 procedure TTestServerController.TestDeserializeAndSerializeNullables;
@@ -775,6 +876,18 @@ begin
   end;
 end;
 
+procedure TTestServerController.TestGUIDSerializationEcho;
+var
+  lEnt: TEntityWithGUIDs;
+begin
+  lEnt := Context.Request.BodyAs<TEntityWithGUIDs>;
+  try
+    Render(lEnt, False);
+  finally
+    lEnt.Free;
+  end;
+end;
+
 procedure TTestServerController.TestHelloWorld;
 begin
   ContentType := 'text/plain';
@@ -791,6 +904,35 @@ begin
   ContentType := 'application/fhir+xml; fhirVersion=4.0';
   ResponseStream.Append('OK');
   RenderResponseStream;
+end;
+
+procedure TTestServerController.TestIssue542;
+var
+  lJSON: TJDOJSONObject;
+begin
+  lJSON := TJDOJSONObject.Create;
+  try
+    lJSON.S['QueryStringParams_DelimitedText'] := Context.Request.QueryStringParams.DelimitedText;
+    lJSON.S['QueryStringParam_par1'] := Context.Request.QueryStringParam('par1');
+    lJSON.S['QueryStringParam_par2'] := Context.Request.QueryStringParam('par2');
+    lJSON.I['QueryParams_Count'] := Context.Request.QueryParams.Count;
+    lJSON.S['QueryParams_par1'] := Context.Request.QueryParams['par1'];
+    lJSON.S['QueryParams_par2'] := Context.Request.QueryParams['par2'];
+    Render(lJSON, False);
+  finally
+    lJSON.Free;
+  end;
+end;
+
+procedure TTestServerController.TestIssue552GUIDSupport;
+var
+  lObj: TEntityWithGUIDs;
+begin
+  lObj := TEntityWithGUIDs.Create(False);
+  lObj.GUID := StringToGUID('{75ADE43E-F8C1-4F66-B714-D04726FD2C21}');
+  lObj.NullableGUID := StringToGUID('{7B17F2DD-6ED5-40A4-A334-8ED877A6803E}');
+  lObj.NullableGUID2.Clear;
+  Render(lObj);
 end;
 
 procedure TTestServerController.TestJSONArrayAsObjectList;
@@ -983,6 +1125,15 @@ begin
   Render(TimeToISOTime(value) + ' modified from server');
 end;
 
+procedure TTestServerController.TestWithAllVerbs;
+var
+  lPerson: TPerson;
+begin
+  lPerson := Context.Request.BodyAs<TPerson>();
+  // lCustomer.Logo.SaveToFile('pippo_server_before.bmp');
+  Render(lPerson, True);
+end;
+
 procedure TTestServerController.Tmpl_ListOfDataUsingDatasets;
 var
   lDS: TFDMemTable;
@@ -1047,6 +1198,13 @@ end;
 procedure TTestFault2Controller.NeverExecuted;
 begin
   // do nothing
+end;
+
+{ TTestMultiPathController }
+
+procedure TTestMultiPathController.Action1or2;
+begin
+  Render(HTTP_STATUS.OK);
 end;
 
 end.

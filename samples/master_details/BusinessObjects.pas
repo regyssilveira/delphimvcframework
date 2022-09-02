@@ -4,7 +4,7 @@ unit BusinessObjects;
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2021 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2022 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -76,7 +76,9 @@ type
   public
     constructor Create; override;
     destructor Destroy; override;
+    procedure Assign(Value: TMVCActiveRecord); override;
     property ID: NullableInt64 read fID write fID;
+    [MVCDoNotSerialize]
     property IDOrder: Int64 read fIDOrder write fIDOrder;
     property IDArticle: Int64 read fIDArticle write fIDArticle;
     property UnitPrice: Currency read fUnitPrice write fUnitPrice;
@@ -107,7 +109,9 @@ type
   public
     constructor Create; override;
     destructor Destroy; override;
+    function GetOrderDetailByID(const Value: Int64): TOrderDetail;
     property ID: Int64 read fID write fID;
+    [MVCNameAs('idCustomer')]
     property IDCustomer: Integer read fIDCustomer write fIDCustomer;
     property OrderDate: TDate read fOrderDate write fOrderDate;
     property Total: Currency read fTotal write fTotal;
@@ -127,6 +131,28 @@ end;
 destructor TArticles.Destroy;
 begin
   inherited;
+end;
+
+procedure TOrderDetail.Assign(Value: TMVCActiveRecord);
+var
+  lObj: TOrderDetail;
+begin
+  if Value is TOrderDetail then
+  begin
+    lObj := TOrderDetail(Value);
+    self.ID := lObj.ID;
+    self.IDOrder := lObj.IDOrder;
+    self.IDArticle := lObj.IDArticle;
+    self.UnitPrice := lObj.UnitPrice;
+    self.Discount := lObj.Discount;
+    self.Quantity := lObj.Quantity;
+    self.Description := lObj.Description;
+    self.Total := lObj.Total;
+  end
+  else
+  begin
+    inherited;
+  end;
 end;
 
 constructor TOrderDetail.Create;
@@ -151,10 +177,27 @@ begin
   inherited;
 end;
 
-procedure TOrder.OnAfterInsert;
+function TOrder.GetOrderDetailByID(const Value: Int64): TOrderDetail;
+var
+  lOrderDetail: TOrderDetail;
 begin
   inherited;
-  for var lOrderDetail in fDetails do
+  for lOrderDetail in fDetails do
+  begin
+    if lOrderDetail.ID.Value = Value then
+    begin
+      Exit(lOrderDetail);
+    end;
+  end;
+  raise EMVCActiveRecord.Create('Item not found');
+end;
+
+procedure TOrder.OnAfterInsert;
+var
+  lOrderDetail: TOrderDetail;
+begin
+  inherited;
+  for lOrderDetail in fDetails do
   begin
     lOrderDetail.IDOrder := ID;
     lOrderDetail.Insert;
@@ -162,9 +205,11 @@ begin
 end;
 
 procedure TOrder.OnAfterUpdate;
+var
+  lOrderItems: TObjectList<TOrderDetail>;
 begin
   inherited;
-  var lOrderItems := TMVCActiveRecord.SelectRQL<TOrderDetail>(Format('eq(idorder,%d)', [ID]), 100);
+  lOrderItems := TMVCActiveRecord.SelectRQL<TOrderDetail>(Format('eq(idorder,%d)', [ID]), 100);
   try
     TMVCActiveRecord.Merge<TOrderDetail>(lOrderItems, fDetails)
       .Apply(

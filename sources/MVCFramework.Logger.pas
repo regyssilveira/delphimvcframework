@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2021 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2022 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -56,6 +56,9 @@ procedure LogW(AObject: TObject); overload;
 
 procedure LogE(AMessage: string);
 procedure Log(LogLevel: TLogLevel; const AMessage: string); overload;
+
+procedure LogException(const E: Exception; const AMessage: String);
+
 procedure LogEnterMethod(const AMethodName: string);
 procedure LogExitMethod(const AMethodName: string);
 
@@ -153,6 +156,11 @@ end;
 procedure LogE(AMessage: string);
 begin
   Log.Error(AMessage, LOGGERPRO_TAG);
+end;
+
+procedure LogException(const E: Exception; const AMessage: String);
+begin
+  LogE(E.ClassName + ': ' + AMessage);
 end;
 
 // procedure LogException(

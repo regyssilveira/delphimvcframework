@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2021 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2022 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -68,6 +68,15 @@ type
       const AIgnoredAttributes: TMVCIgnoredList = nil;
       const ASerializationAction: TMVCSerializationAction = nil
       ): string; overload;
+
+    function SerializeRecord(
+      const ARecord: Pointer;
+      const ARecordTypeInfo: PTypeInfo;
+      const AType: TMVCSerializationType = stDefault;
+      const AIgnoredAttributes: TMVCIgnoredList = nil;
+      const ASerializationAction: TMVCSerializationAction = nil
+      ): string; overload;
+
 
     function SerializeCollection(
       const AList: TObject;
@@ -372,6 +381,14 @@ function TMVCHTMLSerializer.SerializeObject(const AObject: IInterface;
   const ASerializationAction: TMVCSerializationAction): string;
 begin
   RaiseNotImplemented;
+end;
+
+function TMVCHTMLSerializer.SerializeRecord(const ARecord: Pointer;
+  const ARecordTypeInfo: PTypeInfo; const AType: TMVCSerializationType;
+  const AIgnoredAttributes: TMVCIgnoredList;
+  const ASerializationAction: TMVCSerializationAction): string;
+begin
+  raise Exception.Create('Not implemented');
 end;
 
 end.

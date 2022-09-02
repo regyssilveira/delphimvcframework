@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2021 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2022 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -170,7 +170,9 @@ begin
   fURL := aURL;
   fDefaultHTTPVerb := aDefaultHTTPVerb;
   fHTTP := THTTPClient.Create;
+{$IF defined(BERLINORBETTER)}
   fHTTP.ResponseTimeout := MaxInt;
+{$ENDIF}
   fHTTPRequestHeaders := nil;
   SetOnReceiveResponse(nil).SetOnReceiveData(nil).SetOnNeedClientCertificate(nil).SetOnValidateServerCertificate(nil);
 end;
@@ -308,13 +310,18 @@ begin
 
     if lJSONRPCResponse = nil then
     begin
-      raise EMVCException.CreateFmt('[REMOTE EXCEPTION][%d: %s]: %s',
-        [fHTTPResponse.StatusCode, fHTTPResponse.StatusText, fHTTPResponse.ContentAsString()]);
+      raise EMVCJSONRPCException.CreateFmt('[PROTOCOL EXCEPTION][%d: %s]: %s',
+        [fHTTPResponse.StatusCode,
+        fHTTPResponse.StatusText,
+        fHTTPResponse.ContentAsString()]);
     end;
 
     if Assigned(lJSONRPCResponse.Error) and fRaiseExceptionOnError then
-      raise EMVCJSONRPCException.CreateFmt('[REMOTE EXCEPTION][%d]: %s',
-        [lJSONRPCResponse.Error.Code, lJSONRPCResponse.Error.ErrMessage]);
+      raise EMVCJSONRPCRemoteException.Create(
+        lJSONRPCResponse.Error.Code,
+        lJSONRPCResponse.Error.ErrMessage,
+        lJSONRPCResponse.Error.Data
+        );
     Result := lJSONRPCResponse;
   finally
     lSS.Free;

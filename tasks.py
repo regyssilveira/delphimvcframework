@@ -12,7 +12,7 @@ from pathlib import Path
 
 init()
 
-DEFAULT_DELPHI_VERSION = "11"
+DEFAULT_DELPHI_VERSION = "11.1"
 
 g_releases_path = "releases"
 g_output = "bin"
@@ -44,12 +44,13 @@ def build_delphi_project(
     delphi_version=DEFAULT_DELPHI_VERSION,
 ):
     delphi_versions = {
-        "10":   {"path": "17.0", "desc": "Delphi 10 Seattle"},
+        "10": {"path": "17.0", "desc": "Delphi 10 Seattle"},
         "10.1": {"path": "18.0", "desc": "Delphi 10.1 Berlin"},
         "10.2": {"path": "19.0", "desc": "Delphi 10.2 Tokyo"},
         "10.3": {"path": "20.0", "desc": "Delphi 10.3 Rio"},
         "10.4": {"path": "21.0", "desc": "Delphi 10.4 Sydney"},
-        "11":   {"path": "22.0", "desc": "Delphi 11 Alexandria"}
+        "11": {"path": "22.0", "desc": "Delphi 11 Alexandria"},
+        "11.1": {"path": "22.0", "desc": "Delphi 11.1 Alexandria"},
     }
 
     assert delphi_version in delphi_versions, (
@@ -306,7 +307,7 @@ def tests(ctx, delphi_version=DEFAULT_DELPHI_VERSION):
     import subprocess
 
     print("\nExecuting tests...")
-    subprocess.Popen([r"unittests\general\TestServer\bin\TestServer.exe"])
+    subprocess.Popen([r"unittests\general\TestServer\bin\TestServer.exe"], shell=True)
     r = subprocess.run([r"unittests\general\Several\bin\DMVCFrameworkTests.exe"])
     if r.returncode != 0:
         return Exit("Compilation failed: \n" + str(r.stdout))
@@ -375,7 +376,7 @@ def parse_template(tmpl: List[str]):
         if row.upper().strip() in ["///INTERFACE.END", "///IMPLEMENTATION.END"]:
             if state == "parsing.interface":
                 main_tmpl.append("$INTERFACE$")
-            if state == "parsing.implementation":
+            if state == "parsing.implementation":                
                 main_tmpl.append("$IMPLEMENTATION$")
             state = "verbatim"
             continue
@@ -418,6 +419,7 @@ def generate_nullables(ctx):
         "UInt32",
         "Int64",
         "UInt64",
+        "TGUID",
     ]
 
     str_main_tmpl = "".join(main_tmpl)
@@ -426,16 +428,35 @@ def generate_nullables(ctx):
 
     intf_out = ""
     impl_out = ""
+
+    enum_declaration = ["ntInvalidNullableType"]
+    enum_detect_line = []
     for delphi_type in delphi_types:
+        enum_declaration.append('ntNullable' + delphi_type)
+        enum_detect_line.append(f"  if aTypeInfo = TypeInfo(Nullable{delphi_type}) then \n    Exit(ntNullable{delphi_type}); ")
+
         intf_out += (
             f"//**************************\n// ** Nullable{delphi_type}\n//**************************\n\n"
             + str_intf_tmpl.replace("$TYPE$", delphi_type)
         )
         impl_out += str_impl_tmpl.replace("$TYPE$", delphi_type) + "\n"
 
-    str_main_tmpl = str_main_tmpl.replace("$INTERFACE$", intf_out).replace(
-        "$IMPLEMENTATION$", impl_out
-    )
+    enum_declaration = '  TNullableType = (\n     ' + '\n   , '.join(enum_declaration) + ');\n\n' 
+    enum_detect_function = []
+    enum_detect_function.append("function GetNullableType(const aTypeInfo: PTypeInfo): TNullableType;")
+    enum_detect_function.append("begin")
+    enum_detect_function.extend(enum_detect_line)        
+    enum_detect_function.append("  Result := ntInvalidNullableType;")
+    enum_detect_function.append("end;")
+
+    intf_out += enum_declaration + "\n"
+    intf_out += enum_detect_function[0] + "\n"
+    impl_out += "\n".join(enum_detect_function) + "\n"
+
+    str_main_tmpl = str_main_tmpl \
+        .replace("$INTERFACE$", intf_out) \
+        .replace("$IMPLEMENTATION$", impl_out) \
+        + "\n"
 
     with open(output_unitname, "w") as f:
         f.writelines(str_main_tmpl)
@@ -448,12 +469,3 @@ def generate_nullables(ctx):
 
     with open(src_folder.joinpath("implementation.out.txt"), "w") as f:
         f.writelines(impl_tmpl)
-
-
-@task()
-def pippo(ctx):
-    r = ctx.run("cmd.exe /c dsir", hide=True, warn=True)
-    if r.failed:
-        print(r.stderr)
-    else:
-        print(r.stdout)

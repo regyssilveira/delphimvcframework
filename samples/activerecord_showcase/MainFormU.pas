@@ -53,6 +53,7 @@ type
     btnMerge: TButton;
     btnTableFilter: TButton;
     btnPartitioning: TButton;
+    btnCRUDWithGUID: TButton;
     procedure btnCRUDClick(Sender: TObject);
     procedure btnInheritanceClick(Sender: TObject);
     procedure btnMultiThreadingClick(Sender: TObject);
@@ -76,6 +77,7 @@ type
     procedure btnMergeClick(Sender: TObject);
     procedure btnTableFilterClick(Sender: TObject);
     procedure btnPartitioningClick(Sender: TObject);
+    procedure btnCRUDWithGUIDClick(Sender: TObject);
   private
     procedure Log(const Value: string);
     procedure LoadCustomers;
@@ -330,6 +332,60 @@ begin
     Log('Just deleted Customer ' + lID.ToString);
   finally
     lCustomer.Free;
+  end;
+end;
+
+procedure TMainForm.btnCRUDWithGUIDClick(Sender: TObject);
+var
+  lTestNote: string;
+  lCustWithGUID: TCustomerWithGUID;
+  lIDGUID: TGUID;
+begin
+  TMVCActiveRecord.DeleteAll(TCustomerWithGUID);
+
+  Log('** Using GUID as primary key');
+
+  lCustWithGUID := TCustomerWithGUID.Create;
+  try
+    Log('Entity ' + TCustomerWithGUID.ClassName + ' is mapped to table ' + lCustWithGUID.TableName);
+    lCustWithGUID.GUID := TGUID.NewGuid;
+    lCustWithGUID.CompanyName := 'Google Inc.';
+    lCustWithGUID.City := 'Montain View, CA';
+    lCustWithGUID.Note := 'Μῆνιν ἄειδε θεὰ Πηληϊάδεω Ἀχιλῆος οὐλομένην 😁';
+    lCustWithGUID.Insert;
+    lIDGUID := lCustWithGUID.GUID;
+    Log('Just inserted Customer With GUID ' + lIDGUID.ToString);
+  finally
+    lCustWithGUID.Free;
+  end;
+
+  lCustWithGUID := TMVCActiveRecord.GetByPK<TCustomerWithGUID>(lIDGUID);
+  try
+    Assert(not lCustWithGUID.Code.HasValue);
+    lCustWithGUID.Code.Value := '5678';
+    lCustWithGUID.Note := lCustWithGUID.Note + sLineBreak + 'Code changed to 5678 🙂';
+    lTestNote := lCustWithGUID.Note;
+    lCustWithGUID.Update;
+    Log('Just updated Customer ' + lIDGUID.ToString);
+  finally
+    lCustWithGUID.Free;
+  end;
+
+  lCustWithGUID := TCustomerWithGUID.Create;
+  try
+    lCustWithGUID.LoadByPK(lIDGUID);
+    lCustWithGUID.Code.Value := '😉9012🙂';
+    lCustWithGUID.Update;
+  finally
+    lCustWithGUID.Free;
+  end;
+
+  lCustWithGUID := TMVCActiveRecord.GetByPK<TCustomerWithGUID>(lIDGUID);
+  try
+    lCustWithGUID.Delete;
+    Log('Just deleted Customer ' + lIDGUID.ToString);
+  finally
+    lCustWithGUID.Free;
   end;
 end;
 
@@ -771,12 +827,16 @@ begin
 end;
 
 procedure TMainForm.btnPartitioningClick(Sender: TObject);
+var
+  lCust1: TCustomerWithRate1;
+  lCust2: TCustomerWithRate2;
+  lList: TObjectList<TCustomerWithRate1>;
 begin
   TMVCActiveRecord.DeleteAll(TCustomerWithRate1);
   Assert(TMVCActiveRecord.Count(TCustomerWithRate1) = 0);
   TMVCActiveRecord.DeleteAll(TCustomerWithRate2);
   Assert(TMVCActiveRecord.Count(TCustomerWithRate2) = 0);
-  var lCust1 := TCustomerWithRate1.Create;
+  lCust1 := TCustomerWithRate1.Create;
   try
     lCust1.City := 'Rome';
     lCust1.Code := '123';
@@ -784,7 +844,7 @@ begin
   finally
     lCust1.Free;
   end;
-  var lCust2 := TCustomerWithRate2.Create;
+  lCust2 := TCustomerWithRate2.Create;
   try
     lCust2.City := 'Rome';
     lCust2.Code := '456';
@@ -794,7 +854,7 @@ begin
     lCust2.Free;
   end;
 
-  var lList := TMVCActiveRecord.SelectRQL<TCustomerWithRate1>('eq(city,"Rome")',-1);
+  lList := TMVCActiveRecord.SelectRQL<TCustomerWithRate1>('eq(city,"Rome")',-1);
   try
     Assert(lList.Count = 1);
     Assert(lList[0].Code = '123');
@@ -948,6 +1008,7 @@ const
   cRQL2 = 'and(eq(City,"Rome"),or(contains(CompanyName,"GAS"),contains(CompanyName,"Motors")))';
 begin
   LoadCustomers;
+
   Log('** RQL Queries Test');
   Log('>> RQL Query (1) - ' + cRQL1);
   lList := TMVCActiveRecord.SelectRQL(TCustomer, cRQL1, 20);
@@ -1163,16 +1224,31 @@ begin
 end;
 
 procedure TMainForm.btnTableFilterClick(Sender: TObject);
+var
+  i: Integer;
+  lIDOfABadCustomer: Int64;
+  lIDOfAGoodCustomer: Int64;
+  lHowMany: Int64;
+  lCust: TMVCActiveRecord;
+  Customer: TCustomer;
+  lCustomer: TCustomer;
+  lCustomer1: TCustomer;
+  lNotAGoodCustomer: TCustomer;
+  lThisShouldBeNil: TCustomer;
+  lAGoodCustomer: TCustomer;
+  lThisShouldNotBeNil: TCustomer;
+  lGoodCustomers: TObjectList<TGoodCustomer>;
+  lGoodCustomers2: TMVCActiveRecordList;
 begin
   Log('**Table Filtering');
   Log('Deleting only best customers...');
-  var lIDOfABadCustomer := -1;
-  var lIDOfAGoodCustomer := -1;
+  lIDOfABadCustomer := -1;
+  lIDOfAGoodCustomer := -1;
   TMVCActiveRecord.DeleteAll(TGoodCustomer);
   Log('Inserting some customers');
-  for var I := 1 to 5 do
+  for i := 1 to 5 do
   begin
-    var Customer := TCustomer.Create();
+    Customer := TCustomer.Create();
     try
       Customer.Code := I.ToString;
       Customer.Rating := I;
@@ -1191,10 +1267,10 @@ begin
   end;
 
   Log('Retrieving only best customers...');
-  var lGoodCustomers := TMVCActiveRecord.SelectRQL<TGoodCustomer>('sort(+rating)',10);
+  lGoodCustomers := TMVCActiveRecord.SelectRQL<TGoodCustomer>('sort(+rating)',10);
   try
     Assert(lGoodCustomers.Count = 2); { only rating >= 4}
-    for var lCust in lGoodCustomers do
+    for lCust in lGoodCustomers do
     begin
       Log(lCust.ToString);
     end;
@@ -1203,7 +1279,7 @@ begin
   end;
 
   Log('How many "best customers" we have?');
-  var lHowMany := TMVCActiveRecord.Count<TGoodCustomer>;
+  lHowMany := TMVCActiveRecord.Count<TGoodCustomer>;
   Log(Format('We have %d best customers', [lHowMany]));
 
   Log('How many "best customers" with rating = 5 we have?');
@@ -1211,10 +1287,10 @@ begin
   Log(Format('We have %d best customers with rating = 5', [lHowMany]));
 
   Log('Retrieving only best customers...');
-  var lGoodCustomers2 := TMVCActiveRecord.SelectRQL(TGoodCustomer, '', -1);
+  lGoodCustomers2 := TMVCActiveRecord.SelectRQL(TGoodCustomer, '', -1);
   try
     Assert(lGoodCustomers2.Count = 2); { only rating >= 4}
-    for var lCust in lGoodCustomers2 do
+    for lCust in lGoodCustomers2 do
     begin
       Log(lCust.ToString);
     end;
@@ -1226,7 +1302,7 @@ begin
   lGoodCustomers := TMVCActiveRecord.SelectRQL<TGoodCustomer>('sort(+CompanyName)',10);
   try
     Assert(lGoodCustomers.Count = 2); { only rating >= 4}
-    for var lCust in lGoodCustomers do
+    for lCust in lGoodCustomers do
     begin
       Log(lCust.ToString);
     end;
@@ -1237,17 +1313,17 @@ begin
 
   Log('Retrieving only best customers...');
 
-  var lNotAGoodCustomer := TMVCActiveRecord.SelectOneByRQL<TCustomer>('eq(rating,1)', True);
+  lNotAGoodCustomer := TMVCActiveRecord.SelectOneByRQL<TCustomer>('eq(rating,1)', True);
   try
-    var lThisShouldBeNil := TMVCActiveRecord.GetByPK<TGoodCustomer>(lNotAGoodCustomer.ID, False);
+    lThisShouldBeNil := TMVCActiveRecord.GetByPK<TGoodCustomer>(lNotAGoodCustomer.ID, False);
     Assert(lThisShouldBeNil = nil);
   finally
     lNotAGoodCustomer.Free;
   end;
 
-  var lAGoodCustomer := TMVCActiveRecord.SelectOneByRQL<TCustomer>('eq(rating,5)', True);
+  lAGoodCustomer := TMVCActiveRecord.SelectOneByRQL<TCustomer>('eq(rating,5)', True);
   try
-    var lThisShouldNotBeNil := TMVCActiveRecord.GetByPK<TGoodCustomer>(lAGoodCustomer.ID, False);
+    lThisShouldNotBeNil := TMVCActiveRecord.GetByPK<TGoodCustomer>(lAGoodCustomer.ID, False);
     try
       Assert(lThisShouldNotBeNil <> nil);
       Log(lThisShouldNotBeNil.ToString);
@@ -1259,7 +1335,7 @@ begin
   end;
 
   Log('Promoting a customer...');
-  var lCustomer := TBadCustomer.Create;
+  lCustomer := TBadCustomer.Create;
   try
     lCustomer.LoadByPK(lIDOfABadCustomer);
     lCustomer.Rating := 5;
@@ -1270,7 +1346,7 @@ begin
   end;
 
   Log('Demote a customer...');
-  var lCustomer1 := TGoodCustomer.Create;
+  lCustomer1 := TGoodCustomer.Create;
   try
     lCustomer1.LoadByPK(lIDOfAGoodCustomer);
     lCustomer1.Rating := 1;

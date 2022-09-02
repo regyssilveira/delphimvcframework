@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2021 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2022 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -58,6 +58,7 @@ type
 
     procedure OnAfterControllerAction(
       AContext: TWebContext;
+      const AControllerQualifiedClassName: string;
       const AActionName: string;
       const AHandled: Boolean
       );
@@ -75,7 +76,11 @@ implementation
 
 uses
   MVCFramework.ActiveRecord,
+  System.SyncObjs,
   FireDAC.Comp.Client;
+
+var
+  gCONNECTION_DEF_FILE_LOADED: Integer = 0;
 
 { TMVCActiveRecordMiddleware }
 
@@ -95,31 +100,35 @@ begin
     Exit;
   end;
 
-  if fConnectionDefFileName.IsEmpty then
-  begin
+  TMonitor.Enter(Self);
+  try
+    if fConnectionLoaded then
+    begin
+      Exit;
+    end;
+    if TInterlocked.CompareExchange(gCONNECTION_DEF_FILE_LOADED, 1, 0) = 0 then
+    begin
+      if not fConnectionDefFileName.IsEmpty then
+      begin
+        FDManager.ConnectionDefFileAutoLoad := False;
+        FDManager.ConnectionDefFileName := fConnectionDefFileName;
+        FDManager.LoadConnectionDefFile;
+        if not FDManager.IsConnectionDef(fConnectionDefName) then
+        begin
+          raise EMVCConfigException.CreateFmt('ConnectionDefName "%s" not found in config file "%s"',
+            [fConnectionDefName, FDManager.ActualConnectionDefFileName]);
+        end;
+      end;
+    end;
     fConnectionLoaded := True;
-    Exit;
-  end;
-
-  // if not FDManager.ConnectionDefFileLoaded then
-  // begin
-  FDManager.ConnectionDefFileName := fConnectionDefFileName;
-  FDManager.ConnectionDefFileAutoLoad := False;
-  FDManager.LoadConnectionDefFile;
-  // end;
-  if not FDManager.IsConnectionDef(fConnectionDefName) then
-  begin
-    raise EMVCConfigException.CreateFmt('ConnectionDefName "%s" not found in config file "%s"',
-      [fConnectionDefName, FDManager.ActualConnectionDefFileName]);
-  end
-  else
-  begin
-    fConnectionLoaded := True;
+  finally
+    TMonitor.Exit(Self);
   end;
 end;
 
 procedure TMVCActiveRecordMiddleware.OnAfterControllerAction(
   AContext: TWebContext;
+  const AControllerQualifiedClassName: string;
   const AActionName: string;
   const AHandled: Boolean);
 begin
@@ -140,13 +149,9 @@ begin
 end;
 
 procedure TMVCActiveRecordMiddleware.OnBeforeRouting(AContext: TWebContext; var AHandled: Boolean);
-var
-  lConn: TFDConnection;
 begin
   EnsureConnection;
-  lConn := TFDConnection.Create(nil);
-  lConn.ConnectionDefName := fConnectionDefName;
-  ActiveRecordConnectionsRegistry.AddDefaultConnection(lConn, True);
+  ActiveRecordConnectionsRegistry.AddDefaultConnection(fConnectionDefName);
   AHandled := False;
 end;
 

@@ -24,7 +24,11 @@ uses
   MVCFramework.JSONRPC in '..\..\..\sources\MVCFramework.JSONRPC.pas',
   RandomUtilsU in '..\..\..\samples\commons\RandomUtilsU.pas',
   MVCFramework.Serializer.HTML in '..\..\..\sources\MVCFramework.Serializer.HTML.pas',
-  MVCFramework.Tests.Serializer.Entities in '..\..\common\MVCFramework.Tests.Serializer.Entities.pas';
+  MVCFramework.Tests.Serializer.Entities in '..\..\common\MVCFramework.Tests.Serializer.Entities.pas',
+  MVCFramework.Router in '..\..\..\sources\MVCFramework.Router.pas',
+  FDConnectionConfigU in '..\..\common\FDConnectionConfigU.pas',
+  Entities in '..\Several\Entities.pas',
+  EntitiesProcessors in '..\Several\EntitiesProcessors.pas';
 
 {$R *.res}
 

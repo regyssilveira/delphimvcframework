@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2021 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2022 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -33,20 +33,20 @@ uses
   BusinessObjectsU,
   FireDAC.Comp.Client,
   MVCFramework.Serializer.Commons,
-  MVCFramework.Commons, MVCFramework, MVCFramework.JSONRPC;
+  MVCFramework.Commons, MVCFramework, MVCFramework.JSONRPC, CommonTypesU;
 
 type
+
   TMyObject = class
   private
     function GetCustomersDataset: TFDMemTable;
     procedure FillCustomersDataset(const DataSet: TDataSet);
-    //function GetPeopleDataset: TFDMemTable;
+    // function GetPeopleDataset: TFDMemTable;
     procedure FillPeopleDataset(const DataSet: TDataSet);
   public
     procedure OnBeforeCall(const JSONRequest: TJDOJsonObject);
     procedure OnBeforeRouting(const JSON: TJDOJsonObject);
-    procedure OnBeforeSendResponse(
-      const JSONResponse: TJDOJsonObject);
+    procedure OnBeforeSendResponse(const JSONResponse: TJDOJsonObject);
   public
     [MVCDoc('You know, returns aValue1 - aValue2')]
     function Subtract(Value1, Value2: Integer): Integer;
@@ -54,10 +54,10 @@ type
     function ReverseString(const aString: string; const aUpperCase: Boolean): string;
     [MVCDoc('Returns the next monday starting from aDate')]
     function GetNextMonday(const aDate: TDate): TDate;
-    function PlayWithDatesAndTimes(const aJustAFloat: Double; const aTime: TTime; const aDate: TDate;
-      const aDateAndTime: TDateTime): TDateTime;
+    function PlayWithDatesAndTimes(const aJustAFloat: Double; const aTime: TTime;
+      const aDate: TDate; const aDateAndTime: TDateTime): TDateTime;
     [MVCJSONRPCAllowGET]
-    function GetCustomers(FilterString: string): TDataset;
+    function GetCustomers(FilterString: string): TDataSet;
     [MVCJSONRPCAllowGET]
     function GetMulti: TMultiDataset;
     [MVCJSONRPCAllowGET]
@@ -67,7 +67,20 @@ type
     function FloatsTest(const aDouble: Double; const aExtended: Extended): Extended;
     procedure DoSomething;
     procedure RaiseCustomException;
+    function RaiseGenericException(const ExceptionType: Integer): Integer;
     function SaveObjectWithJSON(const WithJSON: TJsonObject): TJsonObject;
+    //enums and sets support
+    function PassingEnums(Value1: TEnumTest; Value2: TEnumTest): TEnumTest;
+
+    //records support
+    function SavePersonRec(PersonRec: TTestRec): TTestRec;
+    function GetPeopleRecDynArray: TTestRecDynArray;
+    function GetPeopleRecStaticArray: TTestRecArray;
+    function GetPersonRec: TTestRec;
+    function GetComplex1: TNestedArraysRec;
+    function EchoComplexArrayOfRecords(PeopleList: TTestRecDynArray): TTestRecDynArray;
+    function EchoComplexArrayOfRecords2(VendorProxiesAndLinks: TNestedArraysRec): TNestedArraysRec;
+
     // invalid parameters modifiers
     procedure InvalidMethod1(var MyVarParam: Integer);
     procedure InvalidMethod2(out MyOutParam: Integer);
@@ -113,6 +126,31 @@ begin
 
 end;
 
+function TMyObject.PassingEnums(Value1, Value2: TEnumTest): TEnumTest;
+begin
+  if Value1 = Value2 then
+  begin
+    Result := TEnumTest.ptEnumValue4;
+  end
+  else
+  begin
+    Result := TEnumTest.ptEnumValue3;
+  end;
+end;
+
+function TMyObject.EchoComplexArrayOfRecords(
+  PeopleList: TTestRecDynArray): TTestRecDynArray;
+begin
+  Result := PeopleList;
+end;
+
+function TMyObject.EchoComplexArrayOfRecords2(
+  VendorProxiesAndLinks: TNestedArraysRec): TNestedArraysRec;
+begin
+  Result := VendorProxiesAndLinks;
+  Result.TestRecProp.StringProp := VendorProxiesAndLinks.TestRecProp.StringProp + ' (changed from server)';
+end;
+
 procedure TMyObject.FillCustomersDataset(const DataSet: TDataSet);
 begin
   DataSet.AppendRecord([1, 'Ford']);
@@ -146,7 +184,20 @@ begin
   Result := aDouble + aExtended;
 end;
 
-function TMyObject.GetCustomers(FilterString: string): TDataset;
+function TMyObject.GetComplex1: TNestedArraysRec;
+begin
+  SetLength(Result.ArrayProp1, 2);
+  SetLength(Result.ArrayProp2, 2);
+
+  Result.ArrayProp1[0] := TTestRec.Create(1234);
+  Result.ArrayProp1[1] := TTestRec.Create(2345);
+
+  Result.ArrayProp2[0] := TTestRec.Create(3456);
+  Result.ArrayProp2[1] := TTestRec.Create(4567);
+
+end;
+
+function TMyObject.GetCustomers(FilterString: string): TDataSet;
 var
   lMT: TFDMemTable;
 begin
@@ -215,28 +266,23 @@ begin
   Result := lDate;
 end;
 
-//function TMyObject.GetPeopleDataset: TFDMemTable;
-//var
-//  lMT: TFDMemTable;
-//begin
-//  lMT := TFDMemTable.Create(nil);
-//  try
-//    lMT.FieldDefs.Clear;
-//    lMT.FieldDefs.Add('FirstName', ftString, 20);
-//    lMT.FieldDefs.Add('LastName', ftString, 20);
-//    lMT.Active := True;
-//    lMT.AppendRecord(['Daniele', 'Teti']);
-//    lMT.AppendRecord(['Peter', 'Parker']);
-//    lMT.AppendRecord(['Bruce', 'Banner']);
-//    lMT.AppendRecord(['Scott', 'Summers']);
-//    lMT.AppendRecord(['Sue', 'Storm']);
-//    lMT.First;
-//    Result := lMT;
-//  except
-//    lMT.Free;
-//    raise;
-//  end;
-//end;
+function TMyObject.GetPeopleRecDynArray: TTestRecDynArray;
+begin
+  SetLength(Result, 2);
+  Result[0] := TTestRec.Create(1);
+  Result[1] := TTestRec.Create(2);
+end;
+
+function TMyObject.GetPeopleRecStaticArray: TTestRecArray;
+begin
+  Result[0] := TTestRec.Create(7);
+  Result[1] := TTestRec.Create(8);
+end;
+
+function TMyObject.GetPersonRec: TTestRec;
+begin
+  Result := TTestRec.Create(99);
+end;
 
 function TMyObject.GetStringDictionary: TMVCStringDictionary;
 begin
@@ -266,8 +312,8 @@ begin
   // do nothing
 end;
 
-function TMyObject.PlayWithDatesAndTimes(const aJustAFloat: Double; const aTime: TTime; const aDate: TDate;
-  const aDateAndTime: TDateTime): TDateTime;
+function TMyObject.PlayWithDatesAndTimes(const aJustAFloat: Double; const aTime: TTime;
+  const aDate: TDate; const aDateAndTime: TDateTime): TDateTime;
 begin
   Result := aDateAndTime + aDate + aTime + TDateTime(aJustAFloat);
 end;
@@ -275,6 +321,27 @@ end;
 procedure TMyObject.RaiseCustomException;
 begin
   raise EMVCJSONRPCError.Create(JSONRPC_USER_ERROR + 1, 'This is an exception message');
+end;
+
+function TMyObject.RaiseGenericException(const ExceptionType: Integer): Integer;
+var
+  l: Integer;
+begin
+  case ExceptionType of
+    1:
+      begin
+        l := 0;
+        Result := 10 div l;
+      end;
+    2:
+      begin
+        raise EInvalidPointer.Create('Fake Invalid Pointer Operation');
+      end;
+    else
+    begin
+      raise Exception.Create('BOOOOM!');
+    end;
+  end;
 end;
 
 function TMyObject.ReverseString(const aString: string; const aUpperCase: Boolean): string;
@@ -312,6 +379,11 @@ begin
   Result := Random(1000);
 end;
 
+function TMyObject.SavePersonRec(PersonRec: TTestRec): TTestRec;
+begin
+  Result := PersonRec;
+end;
+
 function TMyObject.Subtract(Value1, Value2: Integer): Integer;
 begin
   Result := Value1 - Value2;
@@ -333,8 +405,7 @@ begin
   Log.Info('TMyObjectWithHooks.OnBeforeRouting << ', 'jsonrpc');
 end;
 
-procedure TMyObject.OnBeforeSendResponse(
-  const JSONResponse: TJDOJsonObject);
+procedure TMyObject.OnBeforeSendResponse(const JSONResponse: TJDOJsonObject);
 begin
   Log.Info('TMyObjectWithHooks.OnBeforeSendResponse >> ', 'jsonrpc');
   Log.Info(JSONResponse.ToJSON(False), 'jsonrpc');

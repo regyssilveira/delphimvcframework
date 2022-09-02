@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2021 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2022 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -58,6 +58,8 @@ type
     STATIC_FILES_CONTENT_CHARSET = TMVCConstants.DEFAULT_CONTENT_CHARSET;
   end;
 
+  TMVCStaticFileRulesProc = reference to procedure(const Context: TWebContext; var PathInfo: String; var Handled: Boolean);
+
   TMVCStaticFilesMiddleware = class(TInterfacedObject, IMVCMiddleware)
   private
     fSanityCheckOK: Boolean;
@@ -67,6 +69,7 @@ type
     fIndexDocument: string;
     fStaticFilesCharset: string;
     fSPAWebAppSupport: Boolean;
+    fRules: TMVCStaticFileRulesProc;
     procedure AddMediaTypes;
     // function IsStaticFileRequest(const APathInfo: string; out AFileName: string;
     // out AIsDirectoryTraversalAttach: Boolean): Boolean;
@@ -78,14 +81,17 @@ type
       const ADocumentRoot: string = TMVCStaticFilesDefaults.DOCUMENT_ROOT;
       const AIndexDocument: string = TMVCStaticFilesDefaults.INDEX_DOCUMENT;
       const ASPAWebAppSupport: Boolean = True;
-      const AStaticFilesCharset: string = TMVCStaticFilesDefaults.STATIC_FILES_CONTENT_CHARSET);
+      const AStaticFilesCharset: string = TMVCStaticFilesDefaults.STATIC_FILES_CONTENT_CHARSET;
+      const ARules: TMVCStaticFileRulesProc = nil);
     destructor Destroy; override;
 
     procedure OnBeforeRouting(AContext: TWebContext; var AHandled: Boolean);
     procedure OnBeforeControllerAction(AContext: TWebContext; const AControllerQualifiedClassName: string;
       const AActionName: string; var AHandled: Boolean);
 
-    procedure OnAfterControllerAction(AContext: TWebContext; const AActionName: string; const AHandled: Boolean);
+    procedure OnAfterControllerAction(AContext: TWebContext;
+      const AControllerQualifiedClassName: string; const AActionName: string;
+      const AHandled: Boolean);
 
     procedure OnAfterRouting(AContext: TWebContext; const AHandled: Boolean);
   end;
@@ -123,11 +129,12 @@ begin
 end;
 
 constructor TMVCStaticFilesMiddleware.Create(
-  const AStaticFilesPath: string = TMVCStaticFilesDefaults.STATIC_FILES_PATH;
-  const ADocumentRoot: string = TMVCStaticFilesDefaults.DOCUMENT_ROOT;
-  const AIndexDocument: string = TMVCStaticFilesDefaults.INDEX_DOCUMENT;
-  const ASPAWebAppSupport: Boolean = True;
-  const AStaticFilesCharset: string = TMVCStaticFilesDefaults.STATIC_FILES_CONTENT_CHARSET);
+      const AStaticFilesPath: string = TMVCStaticFilesDefaults.STATIC_FILES_PATH;
+      const ADocumentRoot: string = TMVCStaticFilesDefaults.DOCUMENT_ROOT;
+      const AIndexDocument: string = TMVCStaticFilesDefaults.INDEX_DOCUMENT;
+      const ASPAWebAppSupport: Boolean = True;
+      const AStaticFilesCharset: string = TMVCStaticFilesDefaults.STATIC_FILES_CONTENT_CHARSET;
+      const ARules: TMVCStaticFileRulesProc = nil);
 begin
   inherited Create;
   fSanityCheckOK := False;
@@ -147,6 +154,7 @@ begin
   fStaticFilesCharset := AStaticFilesCharset;
   fSPAWebAppSupport := ASPAWebAppSupport;
   fMediaTypes := TDictionary<string, string>.Create;
+  fRules := ARules;
   AddMediaTypes;
 end;
 
@@ -163,13 +171,9 @@ begin
   begin
     raise EMVCException.Create('StaticFilePath must begin with "/" and cannot be empty');
   end;
-  if fStaticFilesPath = '/' then
-  begin
-    raise EMVCException.Create('StaticFilePath cannot be "/"');
-  end;
   if not TDirectory.Exists(fDocumentRoot) then
   begin
-    raise EMVCException.CreateFmt('DocumentRoot [%s] is not a valid directory', [fDocumentRoot]);
+    raise EMVCException.CreateFmt('TMVCStaticFilesMiddleware Error: DocumentRoot [%s] is not a valid directory', [fDocumentRoot]);
   end;
   fSanityCheckOK := True;
 end;
@@ -181,8 +185,9 @@ end;
 // AIsDirectoryTraversalAttach);
 // end;
 
-procedure TMVCStaticFilesMiddleware.OnAfterControllerAction(AContext: TWebContext; const AActionName: string;
-  const AHandled: Boolean);
+procedure TMVCStaticFilesMiddleware.OnAfterControllerAction(AContext: TWebContext;
+      const AControllerQualifiedClassName: string; const AActionName: string;
+      const AHandled: Boolean);
 begin
   // do nothing
 end;
@@ -205,11 +210,12 @@ var
   lIsDirectoryTraversalAttach: Boolean;
   lFullPathInfo: string;
   lRealFileName: string;
+  lAllow: Boolean;
 begin
-  if not fSanityCheckOK then
-  begin
-    DoSanityCheck;
-  end;
+//  if not fSanityCheckOK then
+//  begin
+//    DoSanityCheck;
+//  end;
 
   lPathInfo := AContext.Request.PathInfo;
 
@@ -232,6 +238,17 @@ begin
     end;
   end;
 
+  if Assigned(fRules) then
+  begin
+    lAllow := True;
+    fRules(AContext, lPathInfo, lAllow);
+    if not lAllow then
+    begin
+      AHandled := True;
+      Exit;
+    end;
+  end;
+
   // calculate the actual requested path
   if lPathInfo.StartsWith(fStaticFilesPath, True) then
   begin
@@ -245,6 +262,11 @@ begin
   lFullPathInfo := TPath.Combine(fDocumentRoot, lPathInfo);
 
   { Now the actual requested path is in lFullPathInfo }
+
+  if not fSanityCheckOK then
+  begin
+    DoSanityCheck;
+  end;
 
   if TMVCStaticContents.IsStaticFile(fDocumentRoot, lPathInfo, lRealFileName,
     lIsDirectoryTraversalAttach) then

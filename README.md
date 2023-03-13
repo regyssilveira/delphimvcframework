@@ -16,7 +16,8 @@
     - [How to partecipate to DMVCFramework development and/or tests](#how-to-partecipate-to-dmvcframework-development-andor-tests)
   - [Sponsors](#sponsors)
   - [What users say about DMVCFramework](#what-users-say-about-dmvcframework)
-  - [What's New in 3.2.3-radium](#whats-new-in-323-radium)
+  - [What's New in dmvcframework-3.3.0-fluorine (currently in beta a.k.a. "repo version")](#whats-new-in-dmvcframework-330-fluorine-currently-in-beta-aka-repo-version)
+  - [What's New in dmvcframework-3.2.3-radium](#whats-new-in-dmvcframework-323-radium)
     - [Bug Fix in 3.2.3-radium](#bug-fix-in-323-radium)
   - [What's new in DelphiMVCFramework-3.2.2-nitrogen](#whats-new-in-delphimvcframework-322-nitrogen)
     - [Bug Fixes in 3.2.2-nitrogen](#bug-fixes-in-322-nitrogen)
@@ -213,7 +214,11 @@ Congratulations to Daniele Teti and all the staff for the excellent work!" -- Ma
 > "Our wishes are coming true" -- one Delphi programmer after a small dmvcframework demo for an IT department of a very important national research institute
 
 
-## What's New in 3.2.3-radium
+## What's New in dmvcframework-3.3.0-fluorine (currently in beta a.k.a. "repo version")
+
+- 🐞 FIX [Issue 648](https://github.com/danieleteti/delphimvcframework/issues/648) Thanks to [sf-spb](https://github.com/sf-spb)
+
+## What's New in dmvcframework-3.2.3-radium
 
 - ⚡ Default error responses contains the official "reason string" associated to the HTTP status code (this can be a breaking change for some generic client which doesn't correctly interpret the http status code)
 

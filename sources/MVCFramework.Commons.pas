@@ -35,13 +35,15 @@ uses
   System.SysUtils,
   System.SyncObjs,
   System.IOUtils,
+  System.RTTI,
   Data.DB,
   IdGlobal,
   IdCoderMIME,
   IdContext,
   System.Generics.Collections,
   MVCFramework.DuckTyping,
-  JsonDataObjects;
+  JsonDataObjects,
+  MVCFramework.DotEnv;
 
 {$I dmvcframeworkbuildconsts.inc}
 
@@ -149,6 +151,7 @@ type
   public const
     SessionTimeout = 'sessiontimeout';
     ViewPath = 'view_path';
+    ViewCache = 'view_cache';
     DefaultContentType = 'default_content_type';
     DefaultContentCharset = 'default_content_charset';
     DefaultViewFileExtension = 'default_view_file_extension';
@@ -364,23 +367,23 @@ type
 
   EMVCException = class(Exception)
   protected
-    FHttpErrorCode: UInt16;
+    FHTTPStatusCode: UInt16;
     FAppErrorCode: UInt16;
     FDetailedMessage: string;
     FErrorItems: TArray<String>;
-    procedure CheckHTTPErrorCode(const AHTTPErrorCode: UInt16);
+    procedure CheckHTTPStatusCode(const AHTTPStatusCode: UInt16);
   public
-    constructor Create(const AMsg: string); overload; virtual;
     constructor Create(const AMsg: string; const ADetailedMessage: string;
       const AAppErrorCode: UInt16 = 0;
-      const AHTTPErrorCode: UInt16 = HTTP_STATUS.InternalServerError;
+      const AHTTPStatusCode: UInt16 = HTTP_STATUS.InternalServerError;
       const AErrorItems: TArray<String> = nil); overload; virtual;
-    constructor Create(const AHTTPErrorCode: UInt16; const AMsg: string); overload; virtual;
-    constructor Create(const AHTTPErrorCode: UInt16; const AAppErrorCode: Integer; const AMsg: string);
+    constructor Create(const AMsg: string); overload; virtual;
+    constructor Create(const AHTTPStatusCode: UInt16; const AMsg: string); overload; virtual;
+    constructor Create(const AHTTPStatusCode: UInt16; const AAppErrorCode: Integer; const AMsg: string);
       overload; virtual;
     constructor CreateFmt(const AMsg: string; const AArgs: array of const); reintroduce; overload;
-    constructor CreateFmt(const AHTTPErrorCode: UInt16; const AMsg: string; const AArgs: array of const); overload;
-    property HttpErrorCode: UInt16 read FHttpErrorCode;
+    constructor CreateFmt(const AHTTPStatusCode: UInt16; const AMsg: string; const AArgs: array of const); overload;
+    property HTTPStatusCode: UInt16 read FHTTPStatusCode;
     property DetailedMessage: string read FDetailedMessage write FDetailedMessage;
     property ApplicationErrorCode: UInt16 read FAppErrorCode write FAppErrorCode;
     property ErrorItems: TArray<String> read FErrorItems;
@@ -466,21 +469,6 @@ type
     function LinksData: TMVCStringDictionaryList;
   end;
 
-  // IMVCStringDictionary = interface
-  // ['{164117AD-8DDD-47F7-877C-453979707D10}']
-  // function GetItems(const Key: string): string;
-  // procedure SetItems(const Key, Value: string);
-  // procedure Clear;
-  /// /    function Add(const Name, Value: string): IMVCStringDictionary;
-  // function TryGetValue(const Name: string; out Value: string): Boolean; overload;
-  // function TryGetValue(const Name: string; out Value: Integer): Boolean; overload;
-  // function Count: Integer;
-  // function GetEnumerator: TDictionary<string, string>.TPairEnumerator;
-  // function ContainsKey(const Key: string): Boolean;
-  // function Keys: TArray<string>;
-  // property Items[const Key: string]: string read GetItems; default;
-  // end;
-
   TMVCStringDictionary = class // (TInterfacedObject, IMVCStringDictionary)
   strict private
     function GetItems(const Key: string): string;
@@ -530,7 +518,7 @@ type
     procedure Add(const Name: string; Value: T);
   end;
 
-  TMVCViewDataObject = class(TObjectDictionary<string, TObject>)
+  TMVCViewDataObject = class(TObjectDictionary<string, TValue>)
   private
     { private declarations }
   protected
@@ -564,10 +552,12 @@ type
   private
     FConfig: TMVCStringDictionary;
     FFreezed: Boolean;
+    FdotEnv: IMVCdotEnv;
     function GetValue(const AIndex: string): string;
     function GetValueAsInt64(const AIndex: string): Int64;
     procedure SetValue(const AIndex: string; const aValue: string);
     procedure CheckNotFreezed; inline;
+    procedure SetDotEnv(const Value: IMVCdotEnv);
   protected
     { protected declarations }
   public
@@ -578,9 +568,9 @@ type
     function ToString: string; override;
     procedure SaveToFile(const AFileName: string);
     procedure LoadFromFile(const AFileName: string);
-
     property Value[const AIndex: string]: string read GetValue write SetValue; default;
     property AsInt64[const AIndex: string]: Int64 read GetValueAsInt64;
+    property dotEnv: IMVCdotEnv read FdotEnv write SetDotEnv;
   end;
 
   TMVCStreamHelper = class helper for TStream
@@ -667,6 +657,7 @@ function BuildContentType(const aContentMediaType: string; const aContentCharSet
 
 function StrToJSONObject(const aString: String; ARaiseExceptionOnError: Boolean = False): TJsonObject;
 function StrToJSONArray(const aString: String; ARaiseExceptionOnError: Boolean = False): TJsonArray;
+function ObjectToJSONObject(const aObject: TObject): TJSONObject;
 
 function WrapAsList(const AObject: TObject; AOwnsObject: Boolean = False): IMVCList;
 
@@ -772,11 +763,13 @@ type
       VPassword: string; var VHandled: Boolean);
   end;
 
+function dotEnv: IMVCDotEnv; overload;
+procedure dotEnvConfigure(const dotEnvDelegate: TFunc<IMVCDotEnv>);
+
 
 implementation
 
 uses
-
   IdCoder3to4,
   System.NetEncoding,
   System.Character,
@@ -787,6 +780,9 @@ uses
 
 var
   GlobalAppName, GlobalAppPath, GlobalAppExe: string;
+var
+  GdotEnv: IMVCDotEnv = nil;
+  GdotEnvDelegate: TFunc<IMVCDotEnv> = nil;
 
 
 function URLEncode(const Value: string): string; overload;
@@ -939,18 +935,18 @@ end;
 constructor EMVCException.Create(const AMsg: string);
 begin
   inherited Create(AMsg);
-  FHttpErrorCode := HTTP_STATUS.InternalServerError;
+  FHTTPStatusCode := HTTP_STATUS.InternalServerError;
   FDetailedMessage := EmptyStr;
   FAppErrorCode := 0;
   SetLength(FErrorItems, 0);
 end;
 
 constructor EMVCException.Create(const AMsg, ADetailedMessage: string;
-  const AAppErrorCode, AHTTPErrorCode: UInt16; const AErrorItems: TArray<String>);
+  const AAppErrorCode, AHTTPStatusCode: UInt16; const AErrorItems: TArray<String>);
 begin
   Create(AMsg);
-  CheckHTTPErrorCode(AHTTPErrorCode);
-  FHttpErrorCode := AHTTPErrorCode;
+  CheckHTTPStatusCode(AHTTPStatusCode);
+  FHTTPStatusCode := AHTTPStatusCode;
   FAppErrorCode := AAppErrorCode;
   FDetailedMessage := ADetailedMessage;
   if AErrorItems <> nil then
@@ -959,35 +955,35 @@ begin
   end;
 end;
 
-constructor EMVCException.Create(const AHTTPErrorCode: UInt16; const AMsg: string);
+constructor EMVCException.Create(const AHTTPStatusCode: UInt16; const AMsg: string);
 begin
-  CheckHTTPErrorCode(AHTTPErrorCode);
+  CheckHTTPStatusCode(AHTTPStatusCode);
   Create(AMsg);
-  FHttpErrorCode := AHTTPErrorCode;
+  FHTTPStatusCode := AHTTPStatusCode;
 end;
 
-procedure EMVCException.CheckHTTPErrorCode(const AHTTPErrorCode: UInt16);
+procedure EMVCException.CheckHTTPStatusCode(const AHTTPStatusCode: UInt16);
 begin
-  if (AHTTPErrorCode div 100 = 0) or (AHTTPErrorCode div 100 > 5) then
+  if (AHTTPStatusCode div 100 = 0) or (AHTTPStatusCode div 100 > 5) then
   begin
-    raise EMVCException.CreateFmt('Invalid HTTP_STATUS [%d]', [AHTTPErrorCode]);
+    raise EMVCException.CreateFmt('Invalid HTTP_STATUS [%d]', [AHTTPStatusCode]);
   end;
 end;
 
-constructor EMVCException.Create(const AHTTPErrorCode: UInt16;
+constructor EMVCException.Create(const AHTTPStatusCode: UInt16;
   const AAppErrorCode: Integer; const AMsg: string);
 begin
-  CheckHTTPErrorCode(AHTTPErrorCode);
+  CheckHTTPStatusCode(AHTTPStatusCode);
   Create(AMsg);
-  FHttpErrorCode := AHTTPErrorCode;
+  FHTTPStatusCode := AHTTPStatusCode;
   FAppErrorCode := AAppErrorCode;
 end;
 
-constructor EMVCException.CreateFmt(const AHTTPErrorCode: UInt16;
+constructor EMVCException.CreateFmt(const AHTTPStatusCode: UInt16;
   const AMsg: string; const AArgs: array of const);
 begin
   inherited CreateFmt(AMsg, AArgs);
-  FHttpErrorCode := AHTTPErrorCode;
+  FHTTPStatusCode := AHTTPStatusCode;
   FDetailedMessage := EmptyStr;
   FAppErrorCode := 0;
 end;
@@ -1061,7 +1057,8 @@ begin
   if FConfig.ContainsKey(AIndex) then
     Result := FConfig.Items[AIndex]
   else
-    raise EMVCConfigException.CreateFmt('Invalid config key [%s]', [AIndex]);
+    Result := ''; //v3.4.1-sodium (an invalid config key returns empty string, doesn't raise an exception)
+  //raise EMVCConfigException.CreateFmt('Invalid config key [%s]', [AIndex]);
 end;
 
 function TMVCConfig.GetValueAsInt64(const AIndex: string): Int64;
@@ -1101,6 +1098,12 @@ end;
 procedure TMVCConfig.SaveToFile(const AFileName: string);
 begin
   TFile.WriteAllText(AFileName, ToString, TEncoding.ASCII);
+end;
+
+procedure TMVCConfig.SetDotEnv(const Value: IMVCdotEnv);
+begin
+  CheckNotFreezed;
+  fdotEnv := Value;
 end;
 
 procedure TMVCConfig.SetValue(const AIndex, aValue: string);
@@ -1669,6 +1672,19 @@ begin
   end;
 end;
 
+
+function ObjectToJSONObject(const aObject: TObject): TJSONObject;
+var
+  lSer: TMVCJsonDataObjectsSerializer;
+begin
+  lSer := TMVCJsonDataObjectsSerializer.Create;
+  try
+    Result := lSer.SerializeObjectToJSON(aObject, TMVCSerializationType.stProperties, [], nil);
+  finally
+    lSer.Free;
+  end;
+end;
+
 function StrToJSONObject(const aString: String; ARaiseExceptionOnError: Boolean = False): TJsonObject;
 begin
   Result := MVCFramework.Utils.StrToJSONObject(aString, ARaiseExceptionOnError);
@@ -1735,6 +1751,40 @@ end;
 class function HTTP_STATUS.ReasonStringFor(const HTTPStatusCode: Integer): String;
 begin
   Result := ReasonStringByHTTPStatusCode(HTTPStatusCode);
+end;
+
+procedure dotEnvConfigure(const dotEnvDelegate: TFunc<IMVCDotEnv>);
+begin
+  if GdotEnv <> nil then
+  begin
+    raise EMVCDotEnv.Create('dotEnv already initialized');
+  end;
+  GdotEnvDelegate := dotEnvDelegate;
+end;
+
+function dotEnv: IMVCDotEnv;
+begin
+  if GdotEnv = nil then
+  begin
+    TMonitor.Enter(gLock);
+    try
+      if GdotEnv = nil then
+      begin
+        if not Assigned(GdotEnvDelegate) then
+        begin
+          raise EMVCDotEnv.Create('"dotEnvConfigure" not called');
+        end;
+        GdotEnv := GdotEnvDelegate();
+        if GdotEnv = nil then
+        begin
+          raise EMVCDotEnv.Create('Delegated passed to "dotEnvConfigure" must return a valid IMVCDotEnv instance');
+        end;
+      end;
+    finally
+      TMonitor.Exit(gLock);
+    end;
+  end;
+  Result := GdotEnv;
 end;
 
 initialization

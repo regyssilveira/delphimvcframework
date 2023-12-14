@@ -69,7 +69,7 @@ uses
   {$ENDIF}
   MVCFramework.Middleware.Compression,
   MVCFramework.Middleware.StaticFiles, FireDAC.Comp.Client,
-  MVCFramework.ActiveRecord, FDConnectionConfigU;
+  MVCFramework.ActiveRecord, FDConnectionConfigU, System.IOUtils;
 
 procedure TMainWebModule.WebModuleCreate(Sender: TObject);
 begin
@@ -79,7 +79,7 @@ begin
       // no config here
       Config[TMVCConfigKey.SessionTimeout] := '0'; // setting cookie
       Config[TMVCConfigKey.PathPrefix] := '';
-      Config[TMVCConfigKey.ViewPath] := '..\templates';
+      Config[TMVCConfigKey.ViewPath] := TPath.Combine(AppPath, '..\templates');
       Config[TMVCConfigKey.DefaultViewFileExtension] := 'html';
     end, nil);
   MVCEngine
@@ -90,6 +90,7 @@ begin
     .AddController(TTestServerControllerActionFilters)
     .AddController(TTestPrivateServerControllerCustomAuth)
     .AddController(TTestMultiPathController)
+    .AddController(TTestActionResultController)
     .AddController(TTestJSONRPCController, '/jsonrpc')
     .AddController(TTestJSONRPCControllerWithGet, '/jsonrpcwithget')
     .AddController(TMVCActiveRecordController,

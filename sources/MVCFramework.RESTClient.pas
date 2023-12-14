@@ -46,7 +46,8 @@ uses
   MVCFramework.RESTClient.Commons,
   MVCFramework.Serializer.Intf,
   MVCFramework.Serializer.Commons,
-  Data.DB, JsonDataObjects;
+  Data.DB,
+  JsonDataObjects;
 
 type
   /// <summary>
@@ -381,6 +382,10 @@ type
     /// </param>
     function AddFile(const aName, aFileName: string; const aContentType: string = ''): IMVCRESTClient; overload;
     function AddFile(const aFileName: string; const aContentType: string = ''): IMVCRESTClient; overload;
+{$IF defined(RIOORBETTER)}
+    function AddFile(const aName: string; aFileStreamValue: TStream; const aFileName: string = '';
+      const aContentType: string = ''): IMVCRESTClient; overload;
+{$ENDIF}
 
     function AddBodyFieldFormData(const aName, aValue: string): IMVCRESTClient; overload;
 {$IF defined(RIOORBETTER)}
@@ -520,6 +525,7 @@ type
     fContentLength: Integer;
     fContent: string;
     fContentRawBytes: TBytes;
+    fContentAvailableAsString: Boolean;
 
     procedure FillResponse(const aHTTPResponse: IHTTPResponse);
   public
@@ -533,7 +539,7 @@ type
     function Headers: TStrings;
     function HeaderValue(const aName: string): string;
     function Cookies: TCookies;
-    function CookieByName(const aName: string): TCookie;
+    function CookieByName(const aName: string; const RaiseExceptionIfNotFound: Boolean = False): TCookie;
     function Server: string;
     function ContentType: string;
     function ContentEncoding: string;
@@ -665,7 +671,11 @@ function TMVCRESTClient.AddBodyFieldFormData(const aName: string; aStreamValue: 
   const aContentType: string): IMVCRESTClient;
 begin
   Result := Self;
-  GetBodyFormData.AddStream(aName, aStreamValue, aContentType);
+  {$IF Defined(ATHENSORBETTER)}
+  GetBodyFormData.AddStream(aName, aStreamValue, False, '', aContentType);
+  {$ELSE}
+  GetBodyFormData.AddStream(aName, aStreamValue, '', aContentType);
+  {$ENDIF}
   SetContentType(TMVCMediaType.MULTIPART_FORM_DATA);
 end;
 {$ENDIF}
@@ -695,6 +705,19 @@ begin
   GetBodyFormData.AddFile(aName, aFileName {$IF defined(RIOORBETTER)}, aContentType{$ENDIF});
   SetContentType(TMVCMediaType.MULTIPART_FORM_DATA);
 end;
+
+{$IF defined(RIOORBETTER)}
+function TMVCRESTClient.AddFile(const aName: string; aFileStreamValue: TStream; const aFileName, aContentType: string): IMVCRESTClient;
+begin
+  Result := Self;
+  {$IF Defined(ATHENSORBETTER)}
+  GetBodyFormData.AddStream(aName, aFileStreamValue, False, aFileName, aContentType);
+  {$ELSE}
+  GetBodyFormData.AddStream(aName, aFileStreamValue, aFileName, aContentType);
+  {$ENDIF}
+  SetContentType(TMVCMediaType.MULTIPART_FORM_DATA);
+end;
+{$ENDIF}
 
 function TMVCRESTClient.AddHeader(const aName, aValue: string): IMVCRESTClient;
 begin
@@ -1876,26 +1899,31 @@ end;
 
 function TMVCRESTResponse.ToJSONArray: TJDOJsonArray;
 begin
-  Result := StrTOJSONArray(fContent, True);
+  Result := StrTOJSONArray(Content, True);
 end;
 
 function TMVCRESTResponse.ToJSONObject: TJDOJsonObject;
 begin
-  Result := StrTOJSONObject(fContent, True);
+  Result := StrTOJSONObject(Content, True);
 end;
 
 procedure TMVCRESTResponse.BodyFor(const aObject: TObject; const aRootNode: string);
 begin
-  fRESTClient.Serializer.DeserializeObject(fContent, aObject, TMVCSerializationType.stDefault, [], aRootNode);
+  fRESTClient.Serializer.DeserializeObject(Content, aObject, TMVCSerializationType.stDefault, [], aRootNode);
 end;
 
 procedure TMVCRESTResponse.BodyForListOf(const aObjectList: TObject; const aObjectClass: TClass; const aRootNode: string);
 begin
-  fRESTClient.Serializer.DeserializeCollection(fContent, aObjectList, aObjectClass, TMVCSerializationType.stDefault, [], aRootNode);
+  fRESTClient.Serializer.DeserializeCollection(Content, aObjectList, aObjectClass, TMVCSerializationType.stDefault, [], aRootNode);
 end;
 
 function TMVCRESTResponse.Content: string;
 begin
+  if not fContentAvailableAsString then
+  begin
+    fContent := TMVCRESTClientHelper.GetResponseContentAsString(fContentRawBytes, fContentType);
+    fContentAvailableAsString := True;
+  end;
   Result := fContent;
 end;
 
@@ -1914,7 +1942,7 @@ begin
   Result := fContentType;
 end;
 
-function TMVCRESTResponse.CookieByName(const aName: string): TCookie;
+function TMVCRESTResponse.CookieByName(const aName: string; const RaiseExceptionIfNotFound: Boolean): TCookie;
 var
   lCookie: TCookie;
 begin
@@ -1924,6 +1952,11 @@ begin
     if SameText(lCookie.Name, aName) then
       Exit(lCookie);
   end;
+  if RaiseExceptionIfNotFound then
+  begin
+    raise EMVCRESTClientException.CreateFmt('Cookie "%s" not found', [aName]);
+  end;
+
 end;
 
 function TMVCRESTResponse.Cookies: TCookies;
@@ -1937,7 +1970,7 @@ begin
   SetLength(fContentRawBytes, 0);
   fCookies := TCookies.Create;
   fRESTClient := aRESTClient;
-
+  fContentAvailableAsString := False;
   FillResponse(aHTTPResponse);
 end;
 
@@ -1965,11 +1998,11 @@ begin
   fServer := aHTTPResponse.HeaderValue[TMVCRESTClientConsts.SERVER_HEADER];
   fContentRawBytes := TMVCRESTClientHelper.GetResponseContentAsRawBytes(aHTTPResponse.ContentStream,
     aHTTPResponse.ContentEncoding);
-  fContent := TMVCRESTClientHelper.GetResponseContentAsString(fContentRawBytes,
-    aHTTPResponse.HeaderValue[sContentType]);
+  fContent := '';
   fContentType := aHTTPResponse.HeaderValue[sContentType];
   fContentEncoding := aHTTPResponse.ContentEncoding;
   fContentLength := aHTTPResponse.ContentLength;
+  fContentAvailableAsString := False;
 end;
 
 function TMVCRESTResponse.Headers: TStrings;
@@ -1989,23 +2022,20 @@ end;
 
 procedure TMVCRESTResponse.SaveContentToFile(const aFileName: string);
 var
-  lStream: TMemoryStream;
+  lStream: TFileStream;
 begin
-  lStream := TMemoryStream.Create;
+  lStream := TFileStream.Create(aFileName, fmCreate or fmOpenWrite);
   try
-    lStream.Write(fContentRawBytes, Length(fContentRawBytes));
-    lStream.Position := 0;
-    lStream.SaveToFile(aFileName);
+    SaveContentToStream(lStream);
   finally
-    FreeAndNil(lStream);
+    lStream.Free;
   end;
 end;
 
 procedure TMVCRESTResponse.SaveContentToStream(aStream: TStream);
 begin
   if aStream = nil then
-    raise EMVCRESTClientException.Create('Stream not assigned!');
-
+    raise EMVCRESTClientException.Create('Stream not assigned');
   aStream.Write(fContentRawBytes, Length(fContentRawBytes));
 end;
 

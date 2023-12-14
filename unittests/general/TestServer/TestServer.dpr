@@ -19,16 +19,14 @@ uses
   TestServerControllerPrivateU in 'TestServerControllerPrivateU.pas',
   AuthHandlersU in 'AuthHandlersU.pas',
   BusinessObjectsU in '..\..\..\samples\commons\BusinessObjectsU.pas',
-  MVCFramework in '..\..\..\sources\MVCFramework.pas',
   TestServerControllerJSONRPCU in 'TestServerControllerJSONRPCU.pas',
-  MVCFramework.JSONRPC in '..\..\..\sources\MVCFramework.JSONRPC.pas',
   RandomUtilsU in '..\..\..\samples\commons\RandomUtilsU.pas',
-  MVCFramework.Serializer.HTML in '..\..\..\sources\MVCFramework.Serializer.HTML.pas',
   MVCFramework.Tests.Serializer.Entities in '..\..\common\MVCFramework.Tests.Serializer.Entities.pas',
-  MVCFramework.Router in '..\..\..\sources\MVCFramework.Router.pas',
   FDConnectionConfigU in '..\..\common\FDConnectionConfigU.pas',
   Entities in '..\Several\Entities.pas',
-  EntitiesProcessors in '..\Several\EntitiesProcessors.pas';
+  EntitiesProcessors in '..\Several\EntitiesProcessors.pas',
+  MVCFramework.JSONRPC.Client in '..\..\..\sources\MVCFramework.JSONRPC.Client.pas',
+  MVCFramework.JSONRPC in '..\..\..\sources\MVCFramework.JSONRPC.pas';
 
 {$R *.res}
 
@@ -84,7 +82,7 @@ begin
   try
     if WebRequestHandler <> nil then
       WebRequestHandler.WebModuleClass := WebModuleClass;
-    RunServer(9999);
+    RunServer(8888);
   except
     on E: Exception do
       Writeln(E.ClassName, ': ', E.Message);

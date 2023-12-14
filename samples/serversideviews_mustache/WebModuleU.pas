@@ -25,7 +25,8 @@ uses
   WebSiteControllerU,
   System.IOUtils,
   MVCFramework.Commons,
-  MVCFramework.Middleware.StaticFiles;
+  MVCFramework.Middleware.StaticFiles, SynMustache, CustomMustacheHelpersU,
+  MVCFramework.Serializer.URLEncoded;
 
 { %CLASSGROUP 'Vcl.Controls.TControl' }
 
@@ -53,9 +54,11 @@ begin
       Config[TMVCConfigKey.ViewPath] := 'templates';
       // Enable Server Signature in response
       Config[TMVCConfigKey.ExposeServerSignature] := 'true';
+      Config[TMVCConfigKey.ViewCache] := 'false';
     end)
     .AddController(TWebSiteController)
     .SetViewEngine(TMVCMustacheViewEngine)
+    .AddSerializer(TMVCMediaType.APPLICATION_FORM_URLENCODED, TMVCURLEncodedSerializer.Create);
 end;
 
 procedure TWebModule1.WebModuleDestroy(Sender: TObject);

@@ -139,7 +139,7 @@ begin
   end;
   if not CheckAuthorization(lARClassRef, TMVCActiveRecordAction.Retrieve) then
   begin
-    Render(TMVCErrorResponse.Create(http_status.Forbidden, 'Cannot read ' + entityname, ''));
+    Render(TMVCErrorResponse.Create(http_status.Forbidden, 'Cannot read ' + entityname));
     Exit;
   end;
 
@@ -241,6 +241,7 @@ var
   lARClass: TMVCActiveRecordClass;
   lProcessor: IMVCEntityProcessor;
   lHandled: Boolean;
+  lResponse: IMVCResponse;
 begin
   lProcessor := nil;
   if ActiveRecordMappingRegistry.FindProcessorByURLSegment(entityname, lProcessor) then
@@ -261,18 +262,26 @@ begin
   try
     if not CheckAuthorization(TMVCActiveRecordClass(lAR.ClassType), TMVCActiveRecordAction.Retrieve) then
     begin
-      Render(TMVCErrorResponse.Create(http_status.Forbidden, 'Cannot read ' + entityname, ''));
+      Render(TMVCErrorResponse.Create(http_status.Forbidden, 'Cannot read ' + entityname));
       Exit;
     end;
 
     if lAR.LoadByPK(id) then
     begin
-      Render(ObjectDict(false).Add('data', lAR));
+      lResponse := MVCResponseBuilder
+          .StatusCode(HTTP_STATUS.OK)
+          .Body(ObjectDict(false).Add('data', lAR))
+          .Build;
     end
     else
     begin
-      Render(TMVCErrorResponse.Create(http_status.NotFound, 'Not found', entityname.ToLower + ' not found'));
+      lResponse := MVCResponseBuilder
+          .StatusCode(HTTP_STATUS.NotFound)
+          .Body(entityname.ToLower + ' not found')
+          .Build;
+      //Render(TMVCErrorResponse.Create(http_status.NotFound, entityname.ToLower + ' not found'));
     end;
+    TMVCRenderer.InternalRenderMVCResponse(Self, TMVCResponse(lResponse));
   finally
     lAR.Free;
   end;
@@ -352,7 +361,7 @@ begin
   try
     if not CheckAuthorization(TMVCActiveRecordClass(lAR.ClassType), TMVCActiveRecordAction.Create) then
     begin
-      Render(TMVCErrorResponse.Create(http_status.Forbidden, 'Cannot create ' + entityname, ''));
+      Render(TMVCErrorResponse.Create(http_status.Forbidden, 'Cannot create ' + entityname));
       Exit;
     end;
 
@@ -362,7 +371,7 @@ begin
     Context.Response.CustomHeaders.Values['X-REF'] := Context.Request.PathInfo + '/' + lAR.GetPK.AsInt64.ToString;
     if Context.Request.QueryStringParam('refresh').ToLower = 'true' then
     begin
-      RenderStatusMessage(http_status.Created, entityname.ToLower + ' created', '', lAR);
+      RenderStatusMessage(http_status.Created, entityname.ToLower + ' created', '', lAR, False);
     end
     else
     begin
@@ -399,7 +408,7 @@ begin
   try
     if not CheckAuthorization(TMVCActiveRecordClass(lAR.ClassType), TMVCActiveRecordAction.Update) then
     begin
-      Render(TMVCErrorResponse.Create(http_status.Forbidden, 'Cannot update ' + entityname, ''));
+      Render(TMVCErrorResponse.Create(http_status.Forbidden, 'Cannot update ' + entityname));
       Exit;
     end;
     lAR.CheckAction(TMVCEntityAction.eaUpdate);
@@ -411,7 +420,7 @@ begin
     Context.Response.CustomHeaders.Values['X-REF'] := Context.Request.PathInfo;
     if Context.Request.QueryStringParam('refresh').ToLower = 'true' then
     begin
-      RenderStatusMessage(http_status.OK, entityname.ToLower + ' updated', '', lAR);
+      RenderStatusMessage(http_status.OK, entityname.ToLower + ' updated', '', lAR, False);
     end
     else
     begin
@@ -446,10 +455,10 @@ begin
   end;
   lAR := lARClass.Create;
   try
-    if not CheckAuthorization(TMVCActiveRecordClass(lAR.ClassType) { TMVCActiveRecordClass(lAR) } ,
+    if not CheckAuthorization(TMVCActiveRecordClass(lAR.ClassType),
       TMVCActiveRecordAction.Delete) then
     begin
-      Render(TMVCErrorResponse.Create(http_status.Forbidden, 'Cannot delete ' + entityname, ''));
+      Render(TMVCErrorResponse.Create(http_status.Forbidden, 'Cannot delete ' + entityname));
       Exit;
     end;
     {

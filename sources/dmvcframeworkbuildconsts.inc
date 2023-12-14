@@ -1,2 +1,2 @@
 const
-  DMVCFRAMEWORK_VERSION = '3.2.3-radium';
+  DMVCFRAMEWORK_VERSION = '3.4.1-sodium-beta';

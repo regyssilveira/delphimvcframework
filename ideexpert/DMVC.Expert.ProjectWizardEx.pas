@@ -50,7 +50,7 @@ type
 
 implementation
 
-{$I dmvcframework.inc}
+{$I ..\sources\dmvcframework.inc}
 
 uses
   DccStrs,
@@ -94,7 +94,7 @@ begin
       JSONRPCUnitCreator: IOTACreator;
       WebModuleCreator: IOTAModuleCreator;
       lProjectSourceCreator: IOTACreator;
-    lJSONRPCUnitName: string;
+      lJSONRPCUnitName: string;
     begin
       WizardForm := TfrmDMVCNewProject.Create(Application);
       try
@@ -109,6 +109,7 @@ begin
           // Create Project Source
           lProjectSourceCreator := TDMVCProjectFile.Create(APersonality);
           TDMVCProjectFile(lProjectSourceCreator).DefaultPort := WizardForm.ServerPort;
+          TDMVCProjectFile(lProjectSourceCreator).UseMSHeapOnWindows := WizardForm.UseMSHeapOnWindows;
           ModuleServices.CreateModule(lProjectSourceCreator);
           Project := GetActiveProject;
 

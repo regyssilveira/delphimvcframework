@@ -1,3 +1,27 @@
+// ***************************************************************************
+//
+// Delphi MVC Framework
+//
+// Copyright (c) 2010-2023 Daniele Teti and the DMVCFramework Team
+//
+// https://github.com/danieleteti/delphimvcframework
+//
+// ***************************************************************************
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// *************************************************************************** }
+
 unit TestServerControllerJSONRPCU;
 
 interface
@@ -44,6 +68,10 @@ type
     [MVCInheritable]
     function AddTimeToDateTime(aDateTime: TDateTime; aTime: TTime): TDateTime;
 
+    //exceptions
+    [MVCInheritable]
+    function DoError(MyObj: TPerson): TPerson;
+
     //objects support
     [MVCInheritable]
     function HandlingObjects(MyObj: TPerson): TPerson;
@@ -70,6 +98,10 @@ type
     function EchoSingleComplexRecord(const ComplexRecord: TComplexRecord): TComplexRecord;
     [MVCInheritable]
     function EchoArrayOfRecords(const ComplexRecordArray: TComplexRecordArray): TComplexRecordArray;
+
+    //issues
+    [MVCInheritable]
+    function GetTCustomer_ISSUE648: TCustomerIssue648;
   end;
 
   [MVCJSONRPCAllowGET]
@@ -139,6 +171,17 @@ begin
   Result := TSimpleRecord.Create;
 end;
 
+function TTestJSONRPCClass.GetTCustomer_ISSUE648: TCustomerIssue648;
+begin
+  Result.Id := 155;
+  Result.Added := Now;
+  Result.Name := 'Daniele Teti';
+  Result.ExpirationDate := Now + 7;
+  Result.MaxUpdateDate.Clear;
+  Result.AppVersion.Clear;
+  Result.Activated.Clear;
+end;
+
 function TTestJSONRPCClass.HandlingObjects(MyObj: TPerson): TPerson;
 begin
   Result := TPerson.Create;
@@ -187,6 +230,11 @@ end;
 function TTestJSONRPCClass.AddTimeToDateTime(aDateTime: TDateTime; aTime: TTime): TDateTime;
 begin
   Result := aDateTime + aTime;
+end;
+
+function TTestJSONRPCClass.DoError(MyObj: TPerson): TPerson;
+begin
+  raise Exception.Create('BOOOM!! (TTestJSONRPCClass.DoError)');
 end;
 
 function TTestJSONRPCClass.EchoArrayOfRecords(

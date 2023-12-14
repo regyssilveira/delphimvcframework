@@ -1,7 +1,7 @@
 # DelphiMVCFramework ![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg) ![GitHub All Releases](https://img.shields.io/github/downloads/danieleteti/delphimvcframework/total?label=Downloads)
 
-![](https://img.shields.io/badge/Current%20Version-dmvcframework--3.2.3--radium-blue)
-![](https://img.shields.io/badge/Beta%20Version-dmvcframework--3.3.0--fluorine--beta-red)  
+![](https://img.shields.io/badge/stable-dmvcframework--3.4.0--neon-blue)
+![](https://img.shields.io/badge/beta-dmvcframework--3.4.1--sodium--beta-red)  
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -16,16 +16,16 @@
     - [How to partecipate to DMVCFramework development and/or tests](#how-to-partecipate-to-dmvcframework-development-andor-tests)
   - [Sponsors](#sponsors)
   - [What users say about DMVCFramework](#what-users-say-about-dmvcframework)
-  - [What's New in dmvcframework-3.3.0-fluorine (currently in beta a.k.a. "repo version")](#whats-new-in-dmvcframework-330-fluorine-currently-in-beta-aka-repo-version)
-  - [What's New in dmvcframework-3.2.3-radium](#whats-new-in-dmvcframework-323-radium)
+  - [What's New in DelphiMVCFramework-3.4.0-neon (stable version)](#whats-new-in-delphimvcframework-340-neon-stable-version)
+  - [Older Versions](#older-versions)
+    - [What's New in dmvcframework-3.3.0-fluorine](#whats-new-in-dmvcframework-330-fluorine)
+    - [What's New in dmvcframework-3.2.3-radium](#whats-new-in-dmvcframework-323-radium)
     - [Bug Fix in 3.2.3-radium](#bug-fix-in-323-radium)
-  - [What's new in DelphiMVCFramework-3.2.2-nitrogen](#whats-new-in-delphimvcframework-322-nitrogen)
+    - [What's new in DelphiMVCFramework-3.2.2-nitrogen](#whats-new-in-delphimvcframework-322-nitrogen)
     - [Bug Fixes in 3.2.2-nitrogen](#bug-fixes-in-322-nitrogen)
     - [Breaking Changes in 3.2.2-nitrogen](#breaking-changes-in-322-nitrogen)
-  - [What's New in DelphiMVCFramework 3.2.1-carbon](#whats-new-in-delphimvcframework-321-carbon)
-    - [Improvements](#improvements)
-    - [Bug Fixes](#bug-fixes)
-  - [Older Releases](#older-releases)
+    - [What's New in DelphiMVCFramework 3.2.1-carbon](#whats-new-in-delphimvcframework-321-carbon)
+      - [Improvements](#improvements)
     - [What's New in 3.2.0-boron](#whats-new-in-320-boron)
       - [Breaking Changes in 3.2.0-boron](#breaking-changes-in-320-boron)
       - [Bug Fixes in 3.2.0-boron](#bug-fixes-in-320-boron)
@@ -35,8 +35,6 @@
     - [What's New in 2.1.2-helium](#whats-new-in-212-helium)
     - [What's New in 2.1.1-hydrogen](#whats-new-in-211-hydrogen)
   - [Roadmap](#roadmap)
-  - [Next Release: 3.3.0-fluorine-beta ("repo" version)](#next-release-330-fluorine-beta-repo-version)
-  - [What's new in: 3.3.0-fluorine-beta ("repo" version)](#whats-new-in-330-fluorine-beta-repo-version)
   - [Trainings, consultancy or custom development service](#trainings-consultancy-or-custom-development-service)
   - [Samples and documentation](#samples-and-documentation)
 - [Getting Started: 5 minutes guide](#getting-started-5-minutes-guide)
@@ -45,6 +43,7 @@
   - [How to create a dmvcframework servers container](#how-to-create-a-dmvcframework-servers-container)
 - [RQL Introduction](#rql-introduction)
     - [RQL as Implemented by DMVCFramework](#rql-as-implemented-by-dmvcframework)
+- [dotEnv syntax](#dotenv-syntax)
   - [Links](#links)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -133,7 +132,7 @@ Are you using DMVCFramework? Do you want to say "Thanks"? <a href="https://www.p
 
 > If you are not involved in development or testing, do not clone the repo! Use the Github release!
 
-The last stable version is **dmvcframework-3.2.3-radium** available [here 📥](https://github.com/danieleteti/delphimvcframework/releases/latest). Just download latest release as a zip file and you are ok. The samples are availables as separate zip file downloadable from the same page where you download the release.
+The last stable version available [here 📥](https://github.com/danieleteti/delphimvcframework/releases/latest). Just download latest release as a zip file and you are ok. Samples are available as separate zip file downloadable from the same page where you download the release.
 
 ## Book: "DelphiMVCFramework - the official guide"
 
@@ -172,8 +171,9 @@ While DMVCFramework is born from the head of Daniele Teti from bit Time Professi
 
 |COMPANY NAME | LOGO|
 |-----------------------------------------------------------------------|------------------------------------------------------------------------|
-|[bit Time Professionals ](https://www.bittimeprofessionals.com)		|![](docs/sponsorlogos/bittimeprofessionals.png)  |
-|[bit Time Software](https://www.bittime.it)                            |![](docs/sponsorlogos/bittimesoftware.png)       |
+|[bit Time Professionals](https://www.bittimeprofessionals.com)	           |![](docs/sponsorlogos/bittimeprofessionals.png)        |
+|[bit Time Professionals - ITALY](https://www.bittimeprofessionals.it)	   |![](docs/sponsorlogos/bittimeprofessionals_italy.png)  |
+|[bit Time Software](https://www.bittime.it)                               |![](docs/sponsorlogos/bittimesoftware.png)             |
 
 
 
@@ -189,6 +189,8 @@ While DMVCFramework is born from the head of Daniele Teti from bit Time Professi
 
 
 ## What users say about DMVCFramework
+
+> "Our wishes are coming true" -- one Delphi programmer after a small dmvcframework demo for an IT department of a very important national research institute
 
 > "I'm still amazed by the DelphiMVCFramework code and documentation. Thank you very much and I am amazed by your quick feedback." -- [Benjamin Yang](https://www.linkedin.com/in/benjamin-yang-4b0609159/) (Director of [SQLGate](https://www.sqlgate.com/))
 
@@ -211,40 +213,228 @@ Congratulations to Daniele Teti and all the staff for the excellent work!" -- Ma
 
 > "Thank you for the great framework! We are very happy with this!" -- Andreas
 
-> "Our wishes are coming true" -- one Delphi programmer after a small dmvcframework demo for an IT department of a very important national research institute
+> "I managed to generate an API for my application thanks to this framework, it is truly useful and efficient!" -- J. Urbani
 
 
-## What's New in dmvcframework-3.3.0-fluorine (currently in beta a.k.a. "repo version")
+## What's New in DelphiMVCFramework-3.4.0-neon (stable version)
 
+>👉 Deeper analisys of what's new in DelphiMVCFramework-3.4.0-neone is available on [Daniele Teti Blog](http://www.danieleteti.it/post/delphimvcframework-3-4-0-neon/) 👈
+
+- ⚡ Added support for dotEnv
+- ⚡ Added MSHeap memory manager for Win32 and Win64 (https://github.com/RDP1974/DelphiMSHeap)
+- 🐞 FIX [Issue 664](https://github.com/danieleteti/delphimvcframework/issues/664) Thanks to [MPannier](https://github.com/MPannier)
+- 🐞 FIX [Issue 667](https://github.com/danieleteti/delphimvcframework/issues/667)
+- 🐞 FIX [Issue 680](https://github.com/danieleteti/delphimvcframework/issues/680)
+- 🐞 FIX [Issue 682](https://github.com/danieleteti/delphimvcframework/issues/682) (Thanks to [wuhao13](https://github.com/wuhao13))
+- 🐞 FIX Wrong comparison in checks for ro/RW/PK fields in `TMVCActiveRecord`
+- 🐞 FIX wrong default initialization for JWT (thanks to Flavio Basile)
+- ⚡ Wizard updated to be dotEnv aware
+- ⚡ Added [HTMX](https://htmx.org/) server side support through unit `samples\htmx\MVCFramework.HTMX.pas` and the relative sample (Thanks to [David Moorhouse](https://github.com/fastbike)). This unit provides class helper for `TMVCWebRequest` and `TMVCWebResponse` classes to easily work with HTMX. If you want to use this unit just download the samples and add it to your project or put `$(DMVCHOME)\samples\htmx` in your library path.
+
+- ⚡ Added "Load Style" methods to `TMVCActiveRecord` (more info https://github.com/danieleteti/delphimvcframework/issues/675)
+  - `TMVCActiveRecord` support "Factory Style" and "Load Style" methods when loads data from database.
+
+    Using "Factory Style" methods (available from the first version) the result list is returned by the loader method (as shown in this piece of code from the `activerecord_showcase` sample).
+
+    ```delphi
+      Log('>> RQL Query (2) - ' + cRQL2);
+      lCustList := TMVCActiveRecord.SelectRQL<TCustomer>(cRQL2, 20);
+      try
+        Log(lCustList.Count.ToString + ' record/s found');
+        for lCustomer in lCustList do
+        begin
+          Log(Format('%5s - %s (%s)', [lCustomer.Code.ValueOrDefault,
+            lCustomer.CompanyName.ValueOrDefault, lCustomer.City]));
+        end;
+      finally
+        lCustList.Free;
+      end;
+    ```
+
+    For some scenarios would be useful to have also "Load Style" methods where the list is filled by the loader method (not instantiated internally).
+
+    ```delphi
+      Log('>> RQL Query (2) - ' + cRQL2);
+      lCustList := TObjectList<TCustomer>.Create;
+      try
+        lRecCount := TMVCActiveRecord.SelectRQL<TCustomer>(cRQL2, 20, lCustList); //new in 3.4.0-neon
+        Log(lRecCount.ToString + ' record/s found');
+        for lCustomer in lCustList do
+        begin
+          Log(Format('%5s - %s (%s)', [lCustomer.Code.ValueOrDefault,
+            lCustomer.CompanyName.ValueOrDefault, lCustomer.City]));
+        end;
+      finally
+        lCustList.Free;
+      end;
+    ```
+
+- ⚡ Better error message in case of serialization of `TArray<TObject>`
+- ⚡ Improved CORS handling - [Issue 679](https://github.com/danieleteti/delphimvcframework/issues/679) (Thanks to [David Moorhouse](https://github.com/fastbike))
+- ⚡ Improved serialization of `TObjectList<TDataSet>` (however `ObjectDict` is still the preferred way to serialize multiple datasets).
+- ⚡ Added static method for easier cloning of FireDAC dataset into `TFDMemTable`. 
+- In the class `EMVCException` the property `HTTPErrorCode` has been renamed in `HTTPStatusCode`.
+- ⚡ Functional Actions
+  - In addition to the classic `procedure` based actions, now it's possibile to use functions as actions. The `Result` variable is automatically rendered and, if it is an object, its memory is freed.
+
+    ```pascal
+    type
+      [MVCNameCase(ncCamelCase)]
+      TPersonRec = record
+        FirstName, LastName: String;
+        Age: Integer;
+        class function Create: TPersonRec; static;
+      end;
+    
+      [MVCNameCase(ncCamelCase)]
+      TPerson = class
+      private
+        fAge: Integer;
+        fFirstName, fLastName: String;
+      public
+        property FirstName: String read fFirstName write fFirstName;
+        property LastName: String read fLastName write fLastName;
+        property Age: Integer read fAge write fAge;
+      end;
+    
+      [MVCPath('/api')]
+      TMyController = class(TMVCController)
+      public
+        { actions returning a simple type }
+        [MVCPath('/sumsasinteger/($A)/($B)')]
+        function GetSum(const A, B: Integer): Integer;
+        [MVCPath('/sumsasfloat/($A)/($B)')]
+        function GetSumAsFloat(const A, B: Extended): Extended;
+    
+        { actions returning records }
+        [MVCPath('/records/single')]
+        function GetSingleRecord: TPersonRec;
+        [MVCPath('/records/multiple')]
+        function GetMultipleRecords: TArray<TPersonRec>;
+    
+        { actions returning objects }
+        [MVCPath('/objects/single')]
+        function GetSingleObject: TPerson;
+        [MVCPath('/objects/multiple')]
+        function GetMultipleObjects: TObjectList<TPerson>;
+    
+        { actions returning datasets }
+        [MVCPath('/datasets/single')]
+        function GetSingleDataSet: TDataSet;
+        [MVCPath('/datasets/multiple')]
+        function GetMultipleDataSet: TEnumerable<TDataSet>;
+        [MVCPath('/datasets/multiple2')]
+        function GetMultipleDataSet2: IMVCObjectDictionary;
+    
+        { customize response headers }
+        [MVCPath('/headers')]
+        function GetWithCustomHeaders: TObjectList<TPerson>;
+      end;
+    ```
+
+    Check sample "function_actions_showcase.dproj" for more info.
+
+- ⚡ Improved `TMVCResponse` type to better suits the new functional actions. 
+
+  `TMVCResponse` can be used with "message based" responses and also with "data based" responses (with single object, with a list of objects or with a dictionary of objects).
+  
+   More info [here](http://www.danieleteti.it/post/delphimvcframework-3-4-0-neon/)
+
+- Removed `statuscode`, `reasonstring` and all the field with a default value from exception's JSON rendering. All the high-level rendering methods will emit standard `ReasonString`.
+
+  Before
+
+  ```json
+  {
+      "apperrorcode": 0,
+      "statuscode": 404,
+      "reasonstring": "Not Found"
+      "classname": "EMVCException",
+      "data": null,
+      "detailedmessage": "",
+      "items": [],
+      "message": "[EMVCException] Not Found"
+  }
+  
+  ```
+
+  Now
+
+  ```json
+  {
+      "classname": "EMVCException",
+      "message": "Not Found"
+  }
+  ```
+
+- ⚡ New! SQL and RQL Named Queries support for TMVCActiveRecord.
+  
+  Here's all the new methods available for Named Queries
+  
+  ```delphi
+      class function SelectByNamedQuery<T: TMVCActiveRecord, constructor>(
+        const QueryName: String;
+        const Params: array of Variant;
+        const ParamTypes: array of TFieldType;
+        const Options: TMVCActiveRecordLoadOptions = []): TObjectList<T>; overload;
+      class function SelectByNamedQuery(
+        const MVCActiveRecordClass: TMVCActiveRecordClass;
+        const QueryName: String;
+        const Params: array of Variant;
+        const ParamTypes: array of TFieldType;
+        const Options: TMVCActiveRecordLoadOptions = []): TMVCActiveRecordList; overload;
+      class function SelectRQLByNamedQuery<T: constructor, TMVCActiveRecord>(
+        const QueryName: String;
+        const Params: array of const;
+        const MaxRecordCount: Integer): TObjectList<T>; overload;
+      class function SelectRQLByNamedQuery(
+        const MVCActiveRecordClass: TMVCActiveRecordClass;
+        const QueryName: String;
+        const Params: array of const;
+        const MaxRecordCount: Integer): TMVCActiveRecordList; overload;
+      class function DeleteRQLByNamedQuery<T: TMVCActiveRecord, constructor>(
+        const QueryName: String;
+        const Params: array of const): Int64;
+      class function CountRQLByNamedQuery<T: TMVCActiveRecord, constructor>(
+        const QueryName: string;
+        const Params: array of const): Int64;
+  ```
+  
+  `MVCNamedSQLQuery` allows to define a "named query" which is, well, a SQL query with a name. Then such query can be used by the method `SelectByNamedQuery<T>` or `SelectByNamedQuery`. Moreover in the attribute it is possible to define on which backend engine that query is usable. In this way you can define optimized query for each supported DMBS you need.
+  
+  More info [here](http://www.danieleteti.it/post/delphimvcframework-3-4-0-neon/)  
+  
+## Older Versions
+
+### What's New in dmvcframework-3.3.0-fluorine
+
+- ⚡ Support for Delphi 11.3 Alexandria
+- ⚡ Ability to use records in swagger param and response attributes [Issue 649](https://github.com/danieleteti/delphimvcframework/issues/649)
+- ⚡ Improved Wizard - now it produces commented code to show how to use `ContextEvents`
+- ⚡ Improved compatibility with Delphi 10.2 Tokyo and older versions (Thanks Mark Lobanov)
+- ⚡ Added sample and middleware for Prometheus (using https://github.com/marcobreveglieri/prometheus-client-delphi)
+- ⚡ Added "Profiler.LogsOnlyIfOverThreshold" which logs only if over the defined threshold
 - 🐞 FIX [Issue 648](https://github.com/danieleteti/delphimvcframework/issues/648) Thanks to [sf-spb](https://github.com/sf-spb)
+- 🐞 FIX [Issue 652](https://github.com/danieleteti/delphimvcframework/issues/652) Thanks to [BssdTS](https://github.com/BssdTS)
+- 🐞 [PR 651](https://github.com/danieleteti/delphimvcframework/pull/651) Thanks to [Francisco Zanini](https://github.com/zaniniflz)
 
-## What's New in dmvcframework-3.2.3-radium
+
+### What's New in dmvcframework-3.2.3-radium
 
 - ⚡ Default error responses contains the official "reason string" associated to the HTTP status code (this can be a breaking change for some generic client which doesn't correctly interpret the http status code)
-
 - ⚡ Added static method `HTTP_STATUS.ReasonStringFor(HTTPStatusCode)` wich returns the standard `ReasonString` for a given HTTP status code.
-
 - ⚡ Improved handling of `TMVCErrorResponse` information 
-
 - ⚡ mid-air-collision handling now uses SHA1 instead of MD5
-
 - ⚡ Added `MVCFramework.Commons.MVC_HTTP_STATUS_CODES` const array containing all the HTTP status codes with its `ReasonString`.
-
 - ⚡ Support for `TObject` descendants in JSONRPC APIs (not only for JSONObject and JSONArray).
-
 - ⚡ New global configuration variable `MVCSerializeNulls`.
-  
   - When MVCSerializeNulls = True (default) empty nullables and nil are serialized as json null.
   - When MVCSerializeNulls = False empty nullables and nil are not serialized at all.
   
 - ⚡ Nullable types now have `Equal` method support, the new method `TryHasValue(out Value)` works like `HasValue` but returns the contained value if present. Also there is a better "equality check" strategy.
-
 - ⚡ Unit tests now are always executed for Win32 and Win64 bit (both client and server).
-
 - ⚡ Added `TMVCActiveRecord.Refresh` method
-
 - ⚡ Unit test suites generates one NUnit XML output file for each platform
-
 - ⚡ New built-in profiler (usable with Delphi 10.4+) - to profile a block of code, write the following 
 
   ```delphi
@@ -319,8 +509,7 @@ Congratulations to Daniele Teti and all the staff for the excellent work!" -- Ma
 
 More details about dmvcframework-3.2.3-radium fixes [here](https://github.com/danieleteti/delphimvcframework/milestone/8?closed=1)
 
-
-## What's new in DelphiMVCFramework-3.2.2-nitrogen
+### What's new in DelphiMVCFramework-3.2.2-nitrogen
 
 - ⚡New! Support for Delphi 11.x Alexandria
 
@@ -619,13 +808,13 @@ More details about dmvcframework-3.2.3-radium fixes [here](https://github.com/da
 - Removed deprecated constructor for `TMVCJWTAuthenticationMiddleware` - was deprecated since 2019. Just use the other one as suggested.
 - Changed signature of method `IMVCMiddleware.OnAfterControllerAction`
 
-## What's New in DelphiMVCFramework 3.2.1-carbon
+### What's New in DelphiMVCFramework 3.2.1-carbon
 
 > This version is the version referenced by the [DelphiMVCFramework - The Official Guide](http://www.danieleteti.it/books/) book (available in english, portuguese and spanish). 
 
 This version introduced new features in many different areas (swagger, server side view, MVCActiveRecord, renders etc.) however there is no a single-big-feature. This version contains also a good number of bugfixes. It's not a critical updated, but this is the *best version ever* (at least, so far...) and is the suggested version for starting new projects. Enjoy!
 
-### Improvements
+#### Improvements
 
 - [docExpansion parameter for Swagger](https://github.com/danieleteti/delphimvcframework/issues/408)
 
@@ -841,8 +1030,6 @@ This version introduced new features in many different areas (swagger, server si
 
 - **Breaking Change!**  `DocumentRoot` of `TMVCStaticFileMiddleware`  must be a valid folder. If `DocumentRoot` doesn't exist an exception is raised.
 
-###  Bug Fixes
-
 - Fix for [issue 421](https://github.com/danieleteti/delphimvcframework/issues/421)
 
 - Fix for [issue 424](https://github.com/danieleteti/delphimvcframework/issues/424)
@@ -866,8 +1053,6 @@ This version introduced new features in many different areas (swagger, server si
 - Fix for [issue408](https://github.com/danieleteti/delphimvcframework/issues/408) a.k.a. *docExpansion parameter for Swagger*
 
   Check [all the issues closed in this release](https://github.com/danieleteti/delphimvcframework/issues?q=+is%3Aissue+milestone%3A3.2.1-carbon).
-
-## Older Releases
 
 ### What's New in 3.2.0-boron
 
@@ -1517,14 +1702,6 @@ end;
 
 DelphiMVCFramework roadmap is always updated as-soon-as the features planned are implemented. Check the roadmap [here](roadmap.md).
 
-## Next Release: 3.3.0-fluorine-beta ("repo" version)
-
-The current beta release is named 3.3.0-fluorine-beta. If you want to stay on the-edge or just help the testers, clone the repo and start using it. Be warned: it may contains unstable code.
-
-## What's new in: 3.3.0-fluorine-beta ("repo" version)
-
-Nothing, so far
-
 ## Trainings, consultancy or custom development service
 As you know, good support on open source software is a must for professional users.
 If you need trainings, consultancy or custom developments on DelphiMVCFramework, send an email to *dmvcframework at bittime dot it*. Alternatively you can send a request using the [contacts forms](http://www.bittimeprofessionals.it/contatti) on [bit Time Professionals website](http://www.bittimeprofessionals.it). bit Time Professionals is the company behind DelphiMVCFramework, the lead developer works there.
@@ -1825,6 +2002,65 @@ recurse(<property?>) - Recursively searches, looking in children of the object a
 first() - Returns the first record of the query's result set
 one() - Returns the first and only record of the query's result set, or produces an error if the query's result set has more or less than one record in it.
 count() - Returns the count of the number of records in the query's result set
+```
+
+
+
+# dotEnv syntax
+
+Since 3.4.0-neon dmvcframework supports dotEnv configuration files. 
+
+> TL:DR "Read key-value pairs from a .env file and set them as environment variables"
+
+The format is not formally specified and still improves over time. That being said, .env files should mostly look like Bash files.
+
+Keys can be unquoted or single-quoted. Values can be unquoted, single- or double-quoted. Spaces before and after keys, equal signs, and values are ignored. Values can be followed by a comment.
+
+**Variable expansion**
+dmvcframework' dotEnv can interpolate variables using POSIX variable expansion.
+
+This is a valid .env file:
+
+```bash
+############
+# ENV FILE #
+############
+
+mode=dev
+
+#DB Name
+dbhostname=my_product_db_dev
+
+#The DB username
+dbuser=my_user
+
+#The DB password (in this example is read from an EnvVariable)
+dbpassword="XYZ${USERNAME}!$"
+
+#DB Hostname
+dbhostname="127.0.0.1"
+
+#user preferences
+user_preferences_path=${APPDATA}
+
+email_template="This is a ${mode} email template
+second template email line
+third template email line"
+
+
+```
+
+
+
+*Utilization*
+
+```delphi
+ var dotEnv := NewDotEnv
+    .WithStrategy(TMVCDotEnvPriority.EnvThenFile)
+    .UseProfile('prod')
+    .Build();
+  mmVars.Clear;
+  mmVars.Lines.AddStrings(dotEnv.ToArray);
 ```
 
 

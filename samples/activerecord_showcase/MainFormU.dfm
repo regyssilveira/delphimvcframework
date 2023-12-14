@@ -2,8 +2,8 @@ object MainForm: TMainForm
   Left = 0
   Top = 0
   Caption = 'TMVCActiveRecord - ShowCase'
-  ClientHeight = 569
-  ClientWidth = 1104
+  ClientHeight = 626
+  ClientWidth = 1094
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -13,8 +13,8 @@ object MainForm: TMainForm
   OnDestroy = FormDestroy
   OnShow = FormShow
   DesignSize = (
-    1104
-    569)
+    1094
+    626)
   TextHeight = 13
   object btnCRUD: TButton
     Left = 8
@@ -37,8 +37,8 @@ object MainForm: TMainForm
   object Memo1: TMemo
     Left = 280
     Top = 8
-    Width = 816
-    Height = 553
+    Width = 806
+    Height = 610
     Anchors = [akLeft, akTop, akRight, akBottom]
     Ctl3D = True
     DoubleBuffered = True
@@ -55,8 +55,6 @@ object MainForm: TMainForm
     TabOrder = 2
     WantReturns = False
     WordWrap = False
-    ExplicitWidth = 812
-    ExplicitHeight = 552
   end
   object btnRelations: TButton
     Left = 8
@@ -266,6 +264,51 @@ object MainForm: TMainForm
     Caption = 'Manual Refresh'
     TabOrder = 25
     OnClick = btnRefreshClick
+  end
+  object btnNamedQuery: TButton
+    Left = 144
+    Top = 482
+    Width = 121
+    Height = 34
+    Caption = 'Named Query'
+    TabOrder = 26
+    OnClick = btnNamedQueryClick
+  end
+  object btnVirtualEntities: TButton
+    Left = 144
+    Top = 522
+    Width = 121
+    Height = 34
+    Caption = 'Virtual Entities'
+    TabOrder = 27
+    OnClick = btnVirtualEntitiesClick
+  end
+  object btnIntegersAsBool: TButton
+    Left = 8
+    Top = 522
+    Width = 121
+    Height = 34
+    Caption = 'Integers As Booleans'
+    TabOrder = 28
+    OnClick = btnIntegersAsBoolClick
+  end
+  object btnObjectVersion: TButton
+    Left = 8
+    Top = 562
+    Width = 121
+    Height = 34
+    Caption = 'Object Version'
+    TabOrder = 29
+    OnClick = btnObjectVersionClick
+  end
+  object btnCustomTable: TButton
+    Left = 144
+    Top = 562
+    Width = 121
+    Height = 34
+    Caption = 'Custom TableName'
+    TabOrder = 30
+    OnClick = btnCustomTableClick
   end
   object FDConnection1: TFDConnection
     Left = 312

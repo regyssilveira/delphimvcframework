@@ -539,7 +539,6 @@ var
   V: TValue;
   Found: Boolean;
 begin
-  Found := False;
   for elem in AList do
   begin
     V := GetProperty(elem, APropertyName);
@@ -757,14 +756,14 @@ end;
 
 class function TRttiUtils.CreateObject(AQualifiedClassName: string; const AParams: TArray<TValue> = nil): TObject;
 var
-  rttitype: TRttiType;
+  lRTTIType: TRttiType;
 begin
-  rttitype := GlContext.FindType(AQualifiedClassName);
-  if Assigned(rttitype) then
-    Result := CreateObject(rttitype, AParams)
+  lRTTIType := GlContext.FindType(AQualifiedClassName);
+  if Assigned(lRTTIType) then
+    Result := CreateObject(lRTTIType, AParams)
   else
     raise Exception.Create('Cannot find RTTI for ' + AQualifiedClassName +
-      '. Hint: Is the specified classtype linked in the module?');
+      '. HINT: Is the specified "QualifiedClassName" linked in the module?');
 end;
 
 class function TRttiUtils.CreateObject(ARttiType: TRttiType; const AParams: TArray<TValue> = nil): TObject;

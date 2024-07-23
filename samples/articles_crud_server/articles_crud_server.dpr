@@ -1,15 +1,19 @@
 program articles_crud_server;
 
 {$APPTYPE CONSOLE}
-
+{$DEFINE USE_DB_LOGGER}
 
 uses
   System.SysUtils,
   IdHTTPWebBrokerBridge,
+  {$IF Defined(USE_DB_LOGGER)}
+  CustomLoggerConfigU,
+  {$ENDIF }
   MVCFramework,
   MVCFramework.Commons,
   MVCFramework.Signal,
   MVCFramework.Logger,
+  MVCFramework.Container,
   MVCFramework.dotEnv,
   Web.WebReq,
   Web.WebBroker,
@@ -18,10 +22,8 @@ uses
   Controllers.Articles in 'Controllers.Articles.pas',
   Services in 'Services.pas',
   BusinessObjects in 'BusinessObjects.pas',
-  MainDM in 'MainDM.pas' {dmMain: TDataModule},
   Commons in 'Commons.pas',
-  MVCFramework.ActiveRecord in '..\..\sources\MVCFramework.ActiveRecord.pas',
-  MVCFramework.Serializer.JsonDataObjects in '..\..\sources\MVCFramework.Serializer.JsonDataObjects.pas';
+  FDConnectionConfigU in 'FDConnectionConfigU.pas';
 
 {$R *.res}
 
@@ -30,8 +32,8 @@ procedure RunServer(APort: Integer);
 var
   LServer: TIdHTTPWebBrokerBridge;
 begin
-  WriteLn('ARTICLES CRUD Sample. Use articles_crud_vcl_client.dproj to manage data');
-  Writeln('** DMVCFramework Server ** build ' + DMVCFRAMEWORK_VERSION);
+  LogI('** DMVCFramework Server ** build ' + DMVCFRAMEWORK_VERSION);
+  LogW('ARTICLES CRUD Sample. Use articles_crud_vcl_client.dproj to manage data');
   LServer := TIdHTTPWebBrokerBridge.Create(nil);
   try
     LServer.OnParseAuthentication := TMVCParseAuthentication.OnParseAuthentication;
@@ -39,10 +41,9 @@ begin
     LServer.KeepAlive := True;
     LServer.MaxConnections := dotEnv.Env('dmvc.webbroker.max_connections', 0);
     LServer.ListenQueue := dotEnv.Env('dmvc.indy.listen_queue', 500);
-
     LServer.Active := True;
-    WriteLn('Listening on port ', APort);
-    Write('CTRL+C to shutdown the server');
+    LogI('Listening on port ' + APort.ToString);
+    LogI('CTRL+C to shutdown the server');
     WaitForTerminationSignal;
     EnterInShutdownState;
     LServer.Active := False;
@@ -57,17 +58,14 @@ begin
     if WebRequestHandler <> nil then
       WebRequestHandler.WebModuleClass := WebModuleClass;
 
-    dotEnvConfigure(
-      function: IMVCDotEnv
-      begin
-        Result := NewDotEnv
-                   .UseStrategy(TMVCDotEnvPriority.FileThenEnv)
-                   .UseLogger(procedure(LogItem: String)
-                              begin
-                                LogW('dotEnv: ' + LogItem);
-                              end)
-                   .Build();             //uses the executable folder to look for .env* files
-      end);
+    {$IF Defined(USE_DB_LOGGER)}
+      MVCFramework.Logger.SetDefaultLogger(CustomLoggerConfigU.GetLogger);
+    {$ENDIF}
+
+    CreateFirebirdPrivateConnDef(True);
+    DefaultMVCServiceContainer
+      .RegisterType(TArticlesService, IArticlesService, TRegistrationType.SingletonPerRequest)
+      .Build;
 
     WebRequestHandlerProc.MaxConnections := dotEnv.Env('dmvc.handler.max_connections', 1024);
     RunServer(dotEnv.Env('dmvc.server.port', 8080));

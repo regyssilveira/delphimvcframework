@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2023 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2024 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -489,6 +489,7 @@ procedure TMVCJSONRPCExecutor.InternalExecuteAsync(
 var
   lCustomHeaders: TNetHeaders;
   lProc: TProc;
+  lURL: String;
 begin
   lCustomHeaders := [];
   if Assigned(fHTTPRequestHeaders) then
@@ -496,6 +497,8 @@ begin
     lCustomHeaders := fHTTPRequestHeaders.ToArray;
   end;
 
+
+  lURL := fURL;
   lProc := procedure
   var
     lSS: TStringStream;
@@ -528,13 +531,13 @@ begin
             case UseVerb of
               jrpcPOST, jrpcDefault:
                 begin
-                  lHttpResp := lHTTP.Post(fURL + aEndPoint, lSS, nil,
+                  lHttpResp := lHTTP.Post(lURL + aEndPoint, lSS, nil,
                     [TNetHeader.Create('content-type', 'application/json;charset=utf8'), TNetHeader.Create('accept',
                     'application/json;charset=utf8')] + lCustomHeaders);
                 end;
               jrpcGET:
                 begin
-                  lHttpResp := lHTTP.Get(fURL + aEndPoint + '?' + GetQueryStringParameters(AJSONRPCObject), nil,
+                  lHttpResp := lHTTP.Get(lURL + aEndPoint + '?' + GetQueryStringParameters(AJSONRPCObject), nil,
                     [TNetHeader.Create('accept', 'application/json;charset=utf8')] + lCustomHeaders);
                 end;
             end;

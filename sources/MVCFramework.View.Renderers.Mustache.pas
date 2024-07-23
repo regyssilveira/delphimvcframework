@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2023 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2024 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -32,7 +32,8 @@ interface
 uses
   MVCFramework, System.SysUtils, System.Generics.Collections,
   MVCFramework.Commons, System.IOUtils, System.RTTI,
-  System.Classes, Data.DB, SynMustache, SynCommons;
+  System.Classes, Data.DB, MVCFramework.IntfObjectPool,
+  mormot.core.mustache, mormot.core.unicode;
 
 type
   { This class implements the mustache view engine for server side views }
@@ -40,21 +41,23 @@ type
   strict private
     procedure PrepareModels;
   private
+    fModelPrepared: Boolean;
     class var fPartials: TSynMustachePartials;
     class var fHelpers: TSynMustacheHelpers;
+    class var fSerializerPool: IIntfObjectPool;
     var FJSONModelAsString: string;
     procedure LoadPartials;
     procedure LoadHelpers;
   protected
-    function RenderJSON(lViewEngine: TSynMustache; const JSON: RawUTF8; Partials: TSynMustachePartials;
-      Helpers: TSynMustacheHelpers; OnTranslate: TOnStringTranslate; EscapeInvert: boolean): RawUTF8; virtual;
+    function RenderJSON(lViewEngine: TSynMustache; const JSON: UTF8String; Partials: TSynMustachePartials;
+      Helpers: TSynMustacheHelpers; OnTranslate: TOnStringTranslate; EscapeInvert: boolean): UTF8String; virtual;
   public
     procedure Execute(const ViewName: string; const OutputStream: TStream); override;
     constructor Create(const AEngine: TMVCEngine; const AWebContext: TWebContext;
       const AViewModel: TMVCViewDataObject;
-      const AViewDataSets: TObjectDictionary<string, TDataSet>;
       const AContentType: string); override;
     class destructor Destroy;
+    class constructor Create;
   end;
 
   TLoadCustomHelpersProc = reference to procedure(var MustacheHelpers: TSynMustacheHelpers);
@@ -99,12 +102,22 @@ var
 
 constructor TMVCMustacheViewEngine.Create(const AEngine: TMVCEngine;
   const AWebContext: TWebContext; const AViewModel: TMVCViewDataObject;
-  const AViewDataSets: TObjectDictionary<string, TDataSet>;
   const AContentType: string);
 begin
   inherited;
+  fModelPrepared := False;
   LoadPartials;
   LoadHelpers;
+end;
+
+class constructor TMVCMustacheViewEngine.Create;
+begin
+  fSerializerPool := MVCFramework.IntfObjectPool.TIntfObjectPool.Create(10000, 10,1,
+    function: IInterface
+    begin
+      Result := TMVCJsonDataObjectsSerializer.Create(nil);
+      RegisterOptionalCustomTypesSerializers(Result as IMVCSerializer);
+    end);
 end;
 
 class destructor TMVCMustacheViewEngine.Destroy;
@@ -112,8 +125,8 @@ begin
   fPartials.Free;
 end;
 
-function TMVCMustacheViewEngine.RenderJSON(lViewEngine: TSynMustache; const JSON: RawUTF8; Partials: TSynMustachePartials;
-  Helpers: TSynMustacheHelpers; OnTranslate: TOnStringTranslate; EscapeInvert: boolean): RawUTF8;
+function TMVCMustacheViewEngine.RenderJSON(lViewEngine: TSynMustache; const JSON: UTF8String; Partials: TSynMustachePartials;
+  Helpers: TSynMustacheHelpers; OnTranslate: TOnStringTranslate; EscapeInvert: boolean): UTF8String;
 begin
   Result := lViewEngine.RenderJSON(JSON, Partials, Helpers, OnTranslate, EscapeInvert);
 end;
@@ -121,7 +134,7 @@ end;
 procedure TMVCMustacheViewEngine.Execute(const ViewName: string; const OutputStream: TStream);
 var
   lViewFileName: string;
-  lViewTemplate: RawUTF8;
+  lViewTemplate: UTF8String;
   lViewEngine: TSynMustache;
   lSW: TStreamWriter;
 begin
@@ -206,60 +219,48 @@ end;
 procedure TMVCMustacheViewEngine.PrepareModels;
 var
   DataObj: TPair<string, TValue>;
-  lDSPair: TPair<string, TDataSet>;
-  lSer: TMVCJsonDataObjectsSerializer;
+  lSer: IMVCSerializer;
   lJSONModel: TJsonObject;
 begin
-  if Assigned(FJSONModel) and (not Assigned(ViewModel)) and (not Assigned(ViewDataSets)) then
+  if fModelPrepared then
   begin
-    // if only jsonmodel is <> nil then we take the "fast path"
-    FJSONModelAsString := FJSONModel.ToJSON(False);
     Exit;
   end;
 
-  lSer := TMVCJsonDataObjectsSerializer.Create;
-  try
-    RegisterOptionalCustomTypesSerializers(lSer);
-    if Assigned(FJSONModel) then
-    begin
-      lJSONModel := FJSONModel.Clone as TJsonObject;
-    end
-    else
-    begin
-      lJSONModel := TJsonObject.Create;
-    end;
+  if Assigned(FJSONModel) and (not Assigned(ViewModel)) then
+  begin
+    // if only jsonmodel is <> nil then we take the "fast path"
+    FJSONModelAsString := FJSONModel.ToJSON(False);
+  end
+  else
+  begin
+    lSer := fSerializerPool.GetFromPool(True) as IMVCSerializer;
     try
-      if Assigned(ViewModel) then
+      if Assigned(FJSONModel) then
       begin
-        for DataObj in ViewModel do
-        begin
-          lSer.TValueToJSONObjectProperty(lJSONModel, DataObj.Key, DataObj.Value, TMVCSerializationType.stDefault, nil, nil);
-//          lList := TDuckTypedList.Wrap(DataObj.Value);
-//          if lList <> nil then
-//          begin
-//            lSer.ListToJsonArray(lList, lJSONModel.A[DataObj.Key], TMVCSerializationType.stProperties, nil);
-//          end
-//          else
-//          begin
-//            lSer.ObjectToJsonObject(DataObj.Value, lJSONModel.O[DataObj.Key], TMVCSerializationType.stProperties, nil);
-//          end;
-        end;
-      end;
-
-      if Assigned(ViewDataSets) then
+        lJSONModel := FJSONModel.Clone as TJsonObject;
+      end
+      else
       begin
-        for lDSPair in ViewDataSets do
-        begin
-          lSer.DataSetToJsonArray(lDSPair.Value, lJSONModel.A[lDSPair.Key], TMVCNameCase.ncAsIs, nil);
-        end;
+        lJSONModel := TJsonObject.Create;
       end;
-      FJSONModelAsString := lJSONModel.ToJSON(False);
+      try
+        if Assigned(ViewModel) then
+        begin
+          for DataObj in ViewModel do
+          begin
+            TMVCJsonDataObjectsSerializer(lSer).TValueToJSONObjectProperty(lJSONModel, DataObj.Key, DataObj.Value, TMVCSerializationType.stDefault, nil, nil);
+          end;
+        end;
+        FJSONModelAsString := lJSONModel.ToJSON(False);
+      finally
+        lJSONModel.Free;
+      end;
     finally
-      lJSONModel.Free;
+      fSerializerPool.ReleaseToPool(lSer)
     end;
-  finally
-    lSer.Free;
   end;
+  fModelPrepared := True;
 end;
 
 { dmvcframework specific helpers}

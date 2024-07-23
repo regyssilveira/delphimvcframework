@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2023 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2024 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -253,9 +253,13 @@ begin
   end;
   DoLog('Path = ' + fEnvPath);
   fEnvDict.Clear;
-
   lAllProfiles := ['default'] + fProfiles.ToArray();
-  DoLog('Active profile/s priority = [' + String.Join(',', lAllProfiles) + ']');
+  if fSkipDefaultEnv then
+  begin
+    Delete(lAllProfiles, 0, 1);
+  end;
+  DoLog('Active profile/s priority = [' + String.Join(',', lAllProfiles) +
+    '] (Priority: ' + GetEnumName(TypeInfo(TMVCDotEnvPriority), Ord(fPriority)) + ')');
   ReadEnvFile;
   ExplodeReferences;
   fState := TdotEnvEngineState.built;
@@ -441,7 +445,7 @@ var
 begin
   if not TFile.Exists(EnvFilePath) then
   begin
-    DoLog('Missed dotEnv file ' + EnvFilePath);
+    DoLog('Missed file ' + EnvFilePath);
     Exit;
   end;
 
@@ -449,7 +453,7 @@ begin
   lParser := TMVCDotEnvParser.Create;
   try
     lParser.Parse(fEnvDict, lDotEnvCode);
-    DoLog('Applied dotEnv file ' + EnvFilePath);
+    DoLog('Applied file ' + EnvFilePath);
   finally
     lParser.Free;
   end;

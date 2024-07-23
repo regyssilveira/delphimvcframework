@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2023 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2024 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -62,7 +62,7 @@ type
     property City: string read fCity write fCity;
     property Rating: NullableInt32 read fRating write fRating;
     property Note: string read fNote write fNote;
-    property ObjVersion: Integer read fObjVersion;
+    property ObjVersion: Integer read fObjVersion write fObjVersion;
   end;
 
 implementation

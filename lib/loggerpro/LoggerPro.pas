@@ -1,6 +1,28 @@
+// *************************************************************************** }
+//
+// LoggerPro
+//
+// Copyright (c) 2010-2024 Daniele Teti
+//
+// https://github.com/danieleteti/loggerpro
+//
+// ***************************************************************************
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// ***************************************************************************
+
 unit LoggerPro;
-{ <@abstract(Contains the LoggerPro core. Include this if you want to create your own logger, otherwise you can use the global one using @link(LoggerPro.GlobalLogger.pas))
-  @author(Daniele Teti) }
 
 {$SCOPEDENUMS ON}
 
@@ -8,23 +30,8 @@ interface
 
 uses
   System.Generics.Collections,
-  System.SysUtils,
   System.Classes,
-  ThreadSafeQueueU;
-
-const
-  { @abstract(Defines the default format string used by the @link(TLoggerProAppenderBase).)
-    The positional parameters are the followings:
-    @orderedList(
-    @itemSetNumber 0
-    @item TimeStamp
-    @item ThreadID
-    @item LogType
-    @item LogMessage
-    @item LogTag
-    )
-  }
-  DEFAULT_LOG_FORMAT = '%0:s [TID %1:-8d][%2:-10s] %3:s [%4:s]';
+  ThreadSafeQueueU, System.SysUtils;
 
 var
   DefaultLoggerProMainQueueSize: Cardinal = 50000;
@@ -61,7 +68,7 @@ type
       @item(INFO)
       @item(WARNING)
       @item(ERROR)
-      @item(FATAL)	  
+      @item(FATAL)
       ) }
     property LogType: TLogType read FType;
     { @abstract(The text of the log message) }
@@ -74,6 +81,13 @@ type
     property ThreadID: TThreadID read FThreadID;
     { @abstract(The type of the log converted in string) }
     property LogTypeAsString: string read GetLogTypeAsString;
+  end;
+
+  ILogItemRenderer = interface
+    ['{CBD22D22-C387-4A97-AD5D-4945B812FDB0}']
+    procedure Setup;
+    procedure TearDown;
+    function RenderLogItem(const aLogItem: TLogItem): String;
   end;
 
   TLoggerProAppenderErrorEvent = reference to procedure(const AppenderClassName: string; const aFailedLogItem: TLogItem;
@@ -285,17 +299,17 @@ type
     FEnabled: Boolean;
     FLastErrorTimeStamp: TDateTime;
     FOnLogRow: TOnAppenderLogRow;
-    FLogFormat: string;
+    FLogItemRenderer: ILogItemRenderer;
     FFormatSettings: TFormatSettings;
   protected
-    property LogFormat: string read FLogFormat;
     property FormatSettings: TFormatSettings read FFormatSettings;
+    property LogItemRenderer: ILogItemRenderer read FLogItemRenderer;
   public
-    constructor Create(ALogFormat: string = DEFAULT_LOG_FORMAT); virtual;
+    constructor Create(ALogItemRenderer: ILogItemRenderer = nil); virtual;
     procedure Setup; virtual;
     function FormatLog(const ALogItem: TLogItem): string; virtual;
     procedure WriteLog(const aLogItem: TLogItem); virtual; abstract;
-    procedure TearDown; virtual; abstract;
+    procedure TearDown; virtual;
     procedure TryToRestart(var Restarted: Boolean); virtual;
     procedure SetLogLevel(const Value: TLogType);
     function GetLogLevel: TLogType; inline;
@@ -349,10 +363,25 @@ type
     )
   }
 
+
+  TLogItemRenderer = class abstract(TInterfacedObject, ILogItemRenderer)
+  protected
+    procedure Setup; virtual;
+    procedure TearDown; virtual;
+    function RenderLogItem(const aLogItem: TLogItem): String; virtual;abstract;
+  public
+    class function GetDefaultLogItemRenderer: ILogItemRenderer;
+  end;
+  TLogItemRendererClass = class of TLogItemRenderer;
+
+
 function GetDefaultFormatSettings: TFormatSettings;
 function StringToLogType(const aLogType: string): TLogType;
 function BuildLogWriter(aAppenders: array of ILogAppender; aEventsHandlers: TLoggerProEventsHandler = nil;
-  aLogLevel: TLogType = TLogType.Debug): ILogWriter;
+  aLogLevel: TLogType = TLogType.Debug): ILogWriter; overload;
+function BuildLogWriter(aAppenders: array of ILogAppender; aEventsHandlers: TLoggerProEventsHandler;
+  aLogLevels: TArray<TLogType>): ILogWriter; overload;
+function LogLayoutByPlaceHoldersToLogLayoutByIndexes(const LogLayoutByPlaceHolders: String; const UseZeroBasedIncrementalIndexes: Boolean): String;
 
 implementation
 
@@ -361,7 +390,8 @@ uses
   LoggerPro.FileAppender,
   System.SyncObjs,
   System.DateUtils,
-  System.IOUtils;
+  System.IOUtils,
+  LoggerPro.Renderers;
 
 function GetDefaultFormatSettings: TFormatSettings;
 begin
@@ -370,6 +400,71 @@ begin
   Result.DecimalSeparator := '.';
   Result.ShortDateFormat := 'YYYY-MM-DD HH:NN:SS:ZZZ';
   Result.ShortTimeFormat := 'HH:NN:SS';
+end;
+
+function LogLayoutByPlaceHoldersToLogLayoutByIndexes(const LogLayoutByPlaceHolders: String; const UseZeroBasedIncrementalIndexes: Boolean): String;
+var
+  PlaceHolders, PlaceHolderWidthsAndPaddings: TArray<string>;
+  I: Integer;
+  lIdx: Integer;
+begin
+  if LogLayoutByPlaceHolders.Contains('%s') or LogLayoutByPlaceHolders.Contains('%d') then
+  begin
+    Exit(LogLayoutByPlaceHolders); //there aren't placeholders
+  end;
+
+  // Format specifiers have the following form:
+  // "%" [index ":"] ["-"] [width] ["." proc] type
+
+  //Format params by index are:
+  // 0: timestamp
+  // 1: threadid
+  // 2: loglevel
+  // 3: message
+  // 4: tag
+
+  SetLength(PlaceHolders, 5);
+  PlaceHolders[0] := 'timestamp';
+  PlaceHolders[1] := 'threadid';
+  PlaceHolders[2] := 'loglevel';
+  PlaceHolders[3] := 'message';
+  PlaceHolders[4] := 'tag';
+
+  //DEFAULT_LOG_FORMAT = '%0:s [TID %1:-8d][%2:-10s] %3:s [%4:s]';
+
+  SetLength(PlaceHolderWidthsAndPaddings, Length(PlaceHolders));
+  PlaceHolderWidthsAndPaddings[0] := '';
+  PlaceHolderWidthsAndPaddings[1] := '8';
+  PlaceHolderWidthsAndPaddings[2] := '-7';
+  PlaceHolderWidthsAndPaddings[3] := '';
+  PlaceHolderWidthsAndPaddings[4] := '';
+
+  Result := LogLayoutByPlaceHolders;
+
+
+  if UseZeroBasedIncrementalIndexes then
+  begin
+    lIdx := 0;
+    for I := 0 to High(PlaceHolders) do
+    begin
+      if Result.Contains('{' + PlaceHolders[I] + '}') then
+      begin
+        Result := Result.Replace(
+          '{' + PlaceHolders[I] + '}',
+          '%' + IntToStr(lIdx) + ':' + PlaceHolderWidthsAndPaddings[I] + 's');
+        Inc(lIdx);
+      end;
+    end;
+  end
+  else
+  begin
+    for I := 0 to High(PlaceHolders) do
+    begin
+      Result := Result.Replace(
+        '{' + PlaceHolders[I] + '}',
+        '%' + IntToStr(I) + ':' + PlaceHolderWidthsAndPaddings[I] + 's');
+    end;
+  end;
 end;
 
 function StringToLogType(const aLogType: string): TLogType;
@@ -392,17 +487,42 @@ end;
 
 function BuildLogWriter(aAppenders: array of ILogAppender; aEventsHandlers: TLoggerProEventsHandler; aLogLevel: TLogType): ILogWriter;
 var
-  lLogAppenders: TLogAppenderList;
-  lLogAppender: ILogAppender;
+  lLogLevelsArray: TArray<TLogType>;
+  I: Integer;
 begin
-  lLogAppenders := TLogAppenderList.Create;
-  for lLogAppender in aAppenders do
+  SetLength(lLogLevelsArray, length(aAppenders));
+  for I := 0 to Length(lLogLevelsArray) - 1 do
   begin
-    lLogAppenders.Add(lLogAppender);
+    lLogLevelsArray[I] := aLogLevel;
   end;
-  Result := TLogWriter.Create(lLogAppenders, aLogLevel);
+  Result := BuildLogWriter(aAppenders, aEventsHandlers, lLogLevelsArray);
+end;
+
+function BuildLogWriter(aAppenders: array of ILogAppender; aEventsHandlers: TLoggerProEventsHandler; aLogLevels: TArray<TLogType>): ILogWriter;
+var
+  lLogAppenders: TLogAppenderList;
+  lLowestLogLevel: TLogType;
+  I: Integer;
+begin
+  lLowestLogLevel := TLogType.Fatal;
+  if Length(aAppenders) <> Length(aLogLevels) then
+  begin
+    raise ELoggerPro.Create('LogLevels.Count <> Appenders.Count');
+  end;
+  lLogAppenders := TLogAppenderList.Create;
+  for I := 0 to Length(aAppenders) - 1 do
+  begin
+    lLogAppenders.Add(aAppenders[I]);
+    aAppenders[I].SetLogLevel(aLogLevels[I]);
+    if aLogLevels[I] < lLowestLogLevel then
+    begin
+      lLowestLogLevel := aLogLevels[I];
+    end;
+  end;
+  Result := TLogWriter.Create(lLogAppenders, lLowestLogLevel);
   TLogWriter(Result).Initialize(aEventsHandlers);
 end;
+
 
 { TLogger.TCustomLogWriter }
 
@@ -414,7 +534,6 @@ end;
 constructor TCustomLogWriter.Create(const aLogAppenders: TLogAppenderList; const aLogLevel: TLogType = TLogType.Debug);
 begin
   inherited Create;
-
   FFreeAllowed := False;
   FLogAppenders := aLogAppenders;
   FLogLevel := aLogLevel;
@@ -797,22 +916,32 @@ end;
 
 { TLoggerProAppenderBase }
 
-constructor TLoggerProAppenderBase.Create(ALogFormat: string);
+constructor TLoggerProAppenderBase.Create(aLogItemRenderer: ILogItemRenderer);
 begin
   inherited Create;
   Self.FEnabled := true;
   Self.FLogLevel := TLogType.Debug;
-  Self.FLogFormat := ALogFormat;
-  Self.FOnLogRow := Nil;
+  if Assigned(aLogItemRenderer) then
+  begin
+    Self.FLogItemRenderer := aLogItemRenderer;
+  end
+  else
+  begin
+    Self.FLogItemRenderer := GetDefaultLogItemRenderer;
+  end;
+  Self.FOnLogRow := nil;
 end;
 
 function TLoggerProAppenderBase.FormatLog(const ALogItem: TLogItem): string;
 begin
   if Assigned(FOnLogRow) then
-    FOnLogRow(ALogItem, Result)
+  begin
+    FOnLogRow(ALogItem, Result);
+  end
   else
-    Result := Format(FLogFormat, [DateTimeToStr(ALogItem.TimeStamp, FFormatSettings),
-      ALogItem.ThreadID, ALogItem.LogTypeAsString, ALogItem.LogMessage, ALogItem.LogTag]);
+  begin
+    Result := FLogItemRenderer.RenderLogItem(ALogItem);
+  end;
 end;
 
 function TLoggerProAppenderBase.GetLastErrorTimeStamp: TDateTime;
@@ -838,6 +967,12 @@ end;
 procedure TLoggerProAppenderBase.Setup;
 begin
   FFormatSettings := GetDefaultFormatSettings;
+  FLogItemRenderer.Setup;
+end;
+
+procedure TLoggerProAppenderBase.TearDown;
+begin
+  FLogItemRenderer.TearDown;
 end;
 
 procedure TLoggerProAppenderBase.TryToRestart(var Restarted: Boolean);
@@ -982,6 +1117,24 @@ end;
 function TLoggerProInterfacedObject._Release: Integer;
 begin
   Result := inherited;
+end;
+
+
+{ TLogItemRenderer }
+
+class function TLogItemRenderer.GetDefaultLogItemRenderer: ILogItemRenderer;
+begin
+  Result := LoggerPro.Renderers.GetDefaultLogItemRenderer;
+end;
+
+procedure TLogItemRenderer.Setup;
+begin
+  // do nothing
+end;
+
+procedure TLogItemRenderer.TearDown;
+begin
+  // do nothing
 end;
 
 end.

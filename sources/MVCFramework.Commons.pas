@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2023 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2024 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -43,7 +43,9 @@ uses
   System.Generics.Collections,
   MVCFramework.DuckTyping,
   JsonDataObjects,
-  MVCFramework.DotEnv;
+  MVCFramework.DotEnv,
+  MVCFramework.Container,
+  sqids;
 
 {$I dmvcframeworkbuildconsts.inc}
 
@@ -115,7 +117,7 @@ type
   TMVCConstants = record
   public const
     SESSION_TOKEN_NAME = 'dtsessionid';
-    DEFAULT_CONTENT_CHARSET = 'UTF-8';
+    DEFAULT_CONTENT_CHARSET = TMVCCharSet.UTF_8;
     DEFAULT_CONTENT_TYPE = TMVCMediaType.APPLICATION_JSON;
     CURRENT_USER_SESSION_KEY = '__DMVC_CURRENT_USER__';
     LAST_AUTHORIZATION_HEADER_VALUE = '__DMVC_LAST_AUTHORIZATION_HEADER_VALUE_';
@@ -128,7 +130,7 @@ type
     HATEOAS_PROP_NAME = 'links';
     X_HTTP_Method_Override = 'X-HTTP-Method-Override';
     MAX_RECORD_COUNT = 100;
-    COPYRIGHT = 'Copyright (c) 2010-2023 Daniele Teti and the DMVCFramework Team';
+    COPYRIGHT = 'Copyright (c) 2010-2024 Daniele Teti and the DMVCFramework Team';
   end;
 
   HATEOAS = record
@@ -247,7 +249,17 @@ type
     /// </summary>
     NotModified = 304;
     UseProxy = 305;
+    /// <summary>
+    ///   HTTP 307 Temporary Redirect redirect status response code indicates that the resource requested has been temporarily moved to the URL given by the Location headers.
+    ///  The method and the body of the original request are reused to perform the redirected request. In the cases where you want the method used to be changed to GET, use 303 See Other instead. This is useful when you want to give an answer to a PUT method that is not the uploaded resources, but a confirmation message (like "You successfully uploaded XYZ").
+    ///  The only difference between 307 and 302 is that 307 guarantees that the method and the body will not be changed when the redirected request is made. With 302, some old clients were incorrectly changing the method to GET: the behavior with non-GET methods and 302 is then unpredictable on the Web, whereas the behavior with 307 is predictable. For GET requests, their behavior is identical.
+    /// </summary>
     TemporaryRedirect = 307;
+    /// <summary>
+    ///   The HyperText Transfer Protocol (HTTP) 308 Permanent Redirect redirect status response code indicates that the resource requested has been definitively moved to the URL given by the Location headers. A browser redirects to this page and search engines update their links to the resource (in 'SEO-speak', it is said that the 'link-juice' is sent to the new URL).
+    ///   The request method and the body will not be altered, whereas 301 may incorrectly sometimes be changed to a GET method.
+    /// </summary>
+    PermanentRedirect = 308;
     // Client Error 4xx
     /// <summary>
     /// The request could not be understood by the server due to malformed syntax. The client SHOULD NOT repeat the request without modifications.
@@ -564,6 +576,7 @@ type
     constructor Create;
     destructor Destroy; override;
     procedure Freeze;
+    function Frozen: Boolean;
     function Keys: TArray<string>;
     function ToString: string; override;
     procedure SaveToFile(const AFileName: string);
@@ -763,6 +776,46 @@ type
       VPassword: string; var VHandled: Boolean);
   end;
 
+  TMVCSqids = class sealed
+  private
+    class var fInstance: TSqids;
+    class function GetInstance: TSqids;
+  public
+    const DEFAULT_ALPHABET = sqids.DEFAULT_ALPHABET;
+    const DEFAULT_MIN_LENGTH  = sqids.DEFAULT_MIN_LENGTH;
+    const MIN_ALPHABET_LENGTH = sqids.MIN_ALPHABET_LENGTH;
+    const MAX_ALPHABET_LENGTH = sqids.MAX_ALPHABET_LENGTH;
+    class var SQIDS_ALPHABET: String;
+    class var SQIDS_MIN_LENGTH: Integer;
+    class destructor Destroy;
+    { sqids }
+    class function SqidToInt(const Sqid: String): UInt64;
+    class function IntToSqid(const Value: UInt64): String;
+  end;
+
+  IMVCSqidsEncoder = interface
+    ['{DFD71A1A-36B0-4EC6-8E8E-35405BB93CA7}']
+    function Encode(aNumbers: TArray<UInt64>): string;
+    function EncodeSingle(aNumber: UInt64): string;
+    function Decode(aId: string): TArray<UInt64>;
+    function DecodeSingle(aId: string): UInt64;
+  end;
+
+  TMVCSqidsEncoder = class(TInterfacedObject, IMVCSqidsEncoder)
+  protected
+    fSqids: TSqids;
+  public
+    constructor Create(AAlphabet: string; AMinLength: Byte; ABlockList: TArray<string>); overload;
+    constructor Create(AAlphabet: string = DEFAULT_ALPHABET; AMinLength: Byte = DEFAULT_MIN_LENGTH); overload;
+    constructor Create(AMinLength: Byte); overload;
+    constructor Create(ABlockList: TArray<string>); overload;
+    function Encode(aNumbers: TArray<UInt64>): string;
+    function EncodeSingle(aNumber: UInt64): string;
+    function Decode(aId: string): TArray<UInt64>;
+    function DecodeSingle(aId: string): UInt64;
+  end;
+
+
 function dotEnv: IMVCDotEnv; overload;
 procedure dotEnvConfigure(const dotEnvDelegate: TFunc<IMVCDotEnv>);
 
@@ -774,25 +827,65 @@ uses
   System.NetEncoding,
   System.Character,
   MVCFramework.Serializer.JsonDataObjects,
-  MVCFramework.Serializer.Commons,
   MVCFramework.Utils,
-  System.RegularExpressions;
+  System.RegularExpressions,
+  MVCFramework.Logger, MVCFramework.Serializer.Commons;
 
 var
   GlobalAppName, GlobalAppPath, GlobalAppExe: string;
+
 var
   GdotEnv: IMVCDotEnv = nil;
   GdotEnvDelegate: TFunc<IMVCDotEnv> = nil;
 
+class destructor TMVCSqids.Destroy;
+begin
+  FreeAndNil(fInstance);
+end;
+
+class function TMVCSqids.GetInstance: TSqids;
+begin
+  if fInstance = nil then
+  begin
+    TMonitor.Enter(gLock);
+    try
+      if fInstance = nil then
+      begin
+        fInstance := TSqids.Create(SQIDS_ALPHABET, SQIDS_MIN_LENGTH);
+      end;
+    finally
+      TMonitor.Exit(gLock);
+    end;
+  end;
+  Result := fInstance;
+end;
+
+class function TMVCSqids.IntToSqid(const Value: UInt64): String;
+begin
+  Result := GetInstance.EncodeSingle(Value);
+end;
+
+class function TMVCSqids.SqidToInt(const Sqid: String): UInt64;
+begin
+  Result := GetInstance.DecodeSingle(Sqid);
+end;
 
 function URLEncode(const Value: string): string; overload;
 begin
+  {$IF defined(BERLINORBETTER)}
+  Result := TNetEncoding.URL.EncodeQuery(Value);
+  {$ELSE}
   Result := TNetEncoding.URL.Encode(Value);
+  {$ENDIF}
 end;
 
 function URLDecode(const Value: string): string;
 begin
+  {$IF defined(BERLINORBETTER)}
+  Result := TNetEncoding.URL.URLDecode(Value);
+  {$ELSE}
   Result := TNetEncoding.URL.Decode(Value);
+  {$ENDIF}
 end;
 
 function AppPath: string;
@@ -1052,6 +1145,11 @@ begin
   FFreezed := True;
 end;
 
+function TMVCConfig.Frozen: Boolean;
+begin
+  Result := FFreezed;
+end;
+
 function TMVCConfig.GetValue(const AIndex: string): string;
 begin
   if FConfig.ContainsKey(AIndex) then
@@ -1102,8 +1200,11 @@ end;
 
 procedure TMVCConfig.SetDotEnv(const Value: IMVCdotEnv);
 begin
-  CheckNotFreezed;
-  fdotEnv := Value;
+  if FdotEnv <> Value then
+  begin
+    CheckNotFreezed;
+    fdotEnv := Value;
+  end;
 end;
 
 procedure TMVCConfig.SetValue(const AIndex, aValue: string);
@@ -1772,9 +1873,21 @@ begin
       begin
         if not Assigned(GdotEnvDelegate) then
         begin
-          raise EMVCDotEnv.Create('"dotEnvConfigure" not called');
+          LogI('Initializing default dotEnv instance');
+          GdotEnv := NewDotEnv
+                       .UseStrategy(TMVCDotEnvPriority.FileThenEnv)
+                       .UseProfile('test')
+                       .UseProfile('prod')
+                       .UseLogger(procedure(LogItem: String)
+                                  begin
+                                    LogI('dotEnv: ' + LogItem);
+                                  end)
+                       .Build();
+        end
+        else
+        begin
+          GdotEnv := GdotEnvDelegate();
         end;
-        GdotEnv := GdotEnvDelegate();
         if GdotEnv = nil then
         begin
           raise EMVCDotEnv.Create('Delegated passed to "dotEnvConfigure" must return a valid IMVCDotEnv instance');
@@ -1785,6 +1898,50 @@ begin
     end;
   end;
   Result := GdotEnv;
+end;
+
+{ TMVCSqidsEncoder }
+
+constructor TMVCSqidsEncoder.Create(AAlphabet: string; AMinLength: Byte;
+  ABlockList: TArray<string>);
+begin
+  inherited Create;
+  fSqids := TSqids.Create(AAlphabet,AMinLength, ABlockList);
+end;
+
+constructor TMVCSqidsEncoder.Create(AAlphabet: string; AMinLength: Byte);
+begin
+  Create(AAlphabet, AMinLength, DEFAULT_BLOCKLIST);
+end;
+
+constructor TMVCSqidsEncoder.Create(AMinLength: Byte);
+begin
+  Create(DEFAULT_ALPHABET, AMinLength, DEFAULT_BLOCKLIST);
+end;
+
+constructor TMVCSqidsEncoder.Create(ABlockList: TArray<string>);
+begin
+  Create(DEFAULT_ALPHABET, DEFAULT_MIN_LENGTH, ABlockList);
+end;
+
+function TMVCSqidsEncoder.Decode(AId: string): TArray<UInt64>;
+begin
+  Result := fSqids.Decode(AId);
+end;
+
+function TMVCSqidsEncoder.DecodeSingle(AId: string): UInt64;
+begin
+  Result := fSqids.DecodeSingle(AId);
+end;
+
+function TMVCSqidsEncoder.Encode(ANumbers: TArray<UInt64>): string;
+begin
+  Result := fSqids.Encode(ANumbers);
+end;
+
+function TMVCSqidsEncoder.EncodeSingle(ANumber: UInt64): string;
+begin
+  Result := fSqids.EncodeSingle(ANumber);
 end;
 
 initialization
@@ -1801,6 +1958,6 @@ GlobalAppPath := IncludeTrailingPathDelimiter(ExtractFilePath(GetModuleName(HIns
 
 finalization
 
-FreeAndNil(gLock);
+FreeAndNil(GLock);
 
 end.

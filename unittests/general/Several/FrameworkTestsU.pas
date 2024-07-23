@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2023 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2024 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -85,9 +85,6 @@ type
     procedure TestPathPrefix;
     [Test]
     procedure TestReservedIPs;
-    // procedure TestRoutingSpeed;
-
-    // objects mappers
   end;
 
   [TestFixture]
@@ -240,6 +237,8 @@ type
     procedure TestStringToDateTime_NewYork;
     [Test]
     procedure TestStringToDateTime_Mumbai;
+    [Test]
+    procedure TestDteToStringAndBack;
   end;
 
   [TestFixture]
@@ -284,6 +283,13 @@ type
     procedure TestVarPlaceHolders;
     [Test]
     procedure TestInLineComments;
+  end;
+
+  [TestFixture]
+  TTestSqids = class(TObject)
+  public
+    [Test]
+    procedure TestSingle;
   end;
 
 
@@ -1967,6 +1973,14 @@ begin
   Assert.areEqual(s1,s2, 'UTC with no time zone (in no DST period)');
 end;
 
+procedure TTestUTC.TestDteToStringAndBack;
+begin
+  var lDate := EncodeDateTime(2011,11,17,12,0,0,0);
+  var lDateStr := DateTimeToISOTimeStamp(lDate);
+  var lDate2 := ISOTimeStampToDateTime(lDateStr);
+  Assert.AreEqual(lDate, lDate2);
+end;
+
 procedure TTestUTC.TestStringToDateTime_in_DST_period;
 var
   lDate, lDateToCompare: TDateTime;
@@ -2386,6 +2400,16 @@ begin
   end;
 end;
 
+
+
+{ TTestSqids }
+
+procedure TTestSqids.TestSingle;
+begin
+  Assert.AreEqual('Im1JUf',TMVCSqids.IntToSqid(1)); {https://sqids.org/playground}
+  Assert.AreEqual<Integer>(1, TMVCSqids.SqidToInt(TMVCSqids.IntToSqid(1)));
+end;
+
 initialization
 
 TDUnitX.RegisterTestFixture(TTestRouting);
@@ -2397,6 +2421,7 @@ TDUnitX.RegisterTestFixture(TTestCryptUtils);
 TDUnitX.RegisterTestFixture(TTestLRUCache);
 TDUnitX.RegisterTestFixture(TTestDotEnv);
 TDUnitX.RegisterTestFixture(TTestDotEnvParser);
+TDUnitX.RegisterTestFixture(TTestSqids);
 
 finalization
 

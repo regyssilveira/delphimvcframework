@@ -13,23 +13,23 @@ type
   protected
     procedure OnBeforeAction(Context: TWebContext; const AActionNAme: string;
       var Handled: Boolean); override;
-    procedure GeneratePeopleListAsCSV;
+    function GeneratePeopleListAsCSV: String;
   public
     [MVCPath('/people')]
     [MVCHTTPMethods([httpGET])]
     [MVCProduces(TMVCMediaType.TEXT_HTML)]
-    procedure PeopleList;
+    function PeopleList: String;
 
     [MVCPath('/people')]
     [MVCHTTPMethods([httpGET])]
     [MVCProduces(TMVCMediaType.TEXT_CSV)]
     // RESTful API, requires ACCEPT=text/csv
-    procedure ExportPeopleListAsCSV_API;
+    function ExportPeopleListAsCSV_API: String;
 
     [MVCPath('/people/formats/csv')]
     [MVCHTTPMethods([httpGET])]
     // Route usable by the browser, doesn't requires ACCEPT=text/csv
-    procedure ExportPeopleListAsCSV;
+    function ExportPeopleListAsCSV: String;
 
     [MVCPath('/people')]
     [MVCHTTPMethods([httpPOST])]
@@ -39,7 +39,7 @@ type
     [MVCPath('/deleteperson')]
     [MVCHTTPMethods([httpPOST])]
     [MVCConsumes(TMVCMediaType.APPLICATION_FORM_URLENCODED)]
-    procedure DeletePerson;
+    procedure DeletePerson([MVCFromContentField('guid')] const GUID: String);
 
     [MVCPath('/new')]
     [MVCHTTPMethods([httpGET])]
@@ -59,23 +59,28 @@ type
     [MVCPath('/showcase')]
     [MVCHTTPMethods([httpGET])]
     [MVCProduces(TMVCMediaType.TEXT_HTML)]
-    procedure MustacheTemplateShowCase;
+    function MustacheTemplateShowCase: String;
+
+    [MVCPath('/loadviewtest')]
+    [MVCHTTPMethods([httpGET])]
+    [MVCProduces(TMVCMediaType.TEXT_PLAIN)]
+    procedure LoadViewTest;
   end;
 
 implementation
 
 { TWebSiteController }
 
-uses System.SysUtils, Web.HTTPApp;
+uses System.SysUtils, Web.HTTPApp, FireDAC.Stan.Intf, FireDAC.Stan.Option,
+  FireDAC.Stan.Param, FireDAC.Stan.Error, FireDAC.DatS, FireDAC.Phys.Intf, FireDAC.DApt.Intf, Data.DB,
+  FireDAC.Comp.DataSet, FireDAC.Comp.Client;
 
-procedure TWebSiteController.DeletePerson;
+procedure TWebSiteController.DeletePerson(const GUID: String);
 var
-  lGUID: string;
   LDAL: IPeopleDAL;
 begin
-  lGUID := Context.Request.Params['guid'];
   LDAL := TServicesFactory.GetPeopleDAL;
-  LDAL.DeleteByGUID(lGUID);
+  LDAL.DeleteByGUID(GUID);
   Redirect('/people');
 end;
 
@@ -103,7 +108,7 @@ begin
         lJItm.S['name'] := lItem;
         lJItm.B['selected'] := TArray.BinarySearch<String>(lDevices, lItem, lIdx);
       end;
-      Result := GetRenderedView(['header', 'editperson', 'footer'], lJObj);
+      Result := Page(['editperson'], lJObj);
     finally
       lJObj.Free;
     end;
@@ -112,21 +117,21 @@ begin
   end;
 end;
 
-procedure TWebSiteController.ExportPeopleListAsCSV;
+function TWebSiteController.ExportPeopleListAsCSV: String;
 begin
-  GeneratePeopleListAsCSV;
+  Result := GeneratePeopleListAsCSV;
   // define the correct behaviour to download the csv inside the browser
   ContentType := TMVCMediaType.TEXT_CSV;
   Context.Response.CustomHeaders.Values['Content-Disposition'] :=
     'attachment; filename=people.csv';
 end;
 
-procedure TWebSiteController.ExportPeopleListAsCSV_API;
+function TWebSiteController.ExportPeopleListAsCSV_API: String;
 begin
-  GeneratePeopleListAsCSV;
+  Result := GeneratePeopleListAsCSV;
 end;
 
-procedure TWebSiteController.GeneratePeopleListAsCSV;
+function TWebSiteController.GeneratePeopleListAsCSV: String;
 var
   LDAL: IPeopleDAL;
   lPeople: TPeople;
@@ -135,8 +140,7 @@ begin
   lPeople := LDAL.GetPeople;
   try
     ViewData['people'] := lPeople;
-    LoadView(['people_header.csv', 'people_list.csv']);
-    RenderResponseStream; // rember to call RenderResponseStream!!!
+    Result := PageFragment(['people_header.csv', 'people_list.csv']);
   finally
     lPeople.Free;
   end;
@@ -147,7 +151,31 @@ begin
   Redirect('/people');
 end;
 
-procedure TWebSiteController.MustacheTemplateShowCase;
+procedure TWebSiteController.LoadViewTest;
+var
+  lDS: TFDMemTable;
+begin
+  lDS := TFDMemTable.Create(nil);
+  try
+    lDS.FieldDefs.Add('id', ftInteger);
+    lDS.FieldDefs.Add('first_name', ftString, 40);
+    lDS.FieldDefs.Add('last_name', ftString, 40);
+    lDS.FieldDefs.Add('age', ftInteger);
+    lDS.CreateDataSet;
+    lDS.AppendRecord([1,'Daniele','Teti',44]);
+    lDS.AppendRecord([2,'Bruce','Banner',54]);
+    lDS.AppendRecord([3,'Peter','Parker',34]);
+    lDS.First;
+
+    ViewData['people'] := lDS;
+    LoadView(['people_list_test','people_list_test']);
+    RenderResponseStream;
+  finally
+    lDS.Free;
+  end;
+end;
+
+function TWebSiteController.MustacheTemplateShowCase: String;
 var
   LDAL: IPeopleDAL;
   lPeople, lPeople2: TPeople;
@@ -164,8 +192,7 @@ begin
         ViewData['people'] := lPeople;
         ViewData['people2'] := lPeople2;
         ViewData['myobj'] := lMyObj;
-        LoadView(['showcase']);
-        RenderResponseStream;
+        Result := Page(['showcase'], False);
       finally
         lMyObj.Free;
       end;
@@ -194,7 +221,7 @@ begin
       lJItm.S['name'] := lItem;
       lJItm.B['selected'] := False;
     end;
-    Result := GetRenderedView(['header', 'editperson', 'footer'], lJObj);
+    Result := Page(['editperson'], lJObj);
   finally
     lJObj.Free;
   end;
@@ -204,11 +231,13 @@ procedure TWebSiteController.OnBeforeAction(Context: TWebContext;
   const AActionNAme: string; var Handled: Boolean);
 begin
   inherited;
-  ContentType := 'text/html';
+  SetPagesCommonHeaders(['header']);
+  SetPagesCommonFooters(['footer']);
+  if not AActionNAme.ToLower.Contains('test') then ContentType := 'text/html';
   Handled := False;
 end;
 
-procedure TWebSiteController.PeopleList;
+function TWebSiteController.PeopleList: String;
 var
   LDAL: IPeopleDAL;
   lPeople: TPeople;
@@ -217,12 +246,10 @@ begin
   lPeople := LDAL.GetPeople;
   try
     ViewData['people'] := lPeople;
-    LoadView(['header', 'people_list', 'footer']);
-    RenderResponseStream; // rember to call RenderResponseStream!!!
+    Result := Page(['people_list']);
   finally
     lPeople.Free;
   end;
-
 end;
 
 procedure TWebSiteController.SavePerson(const [MVCFromBody] Person: TPerson);

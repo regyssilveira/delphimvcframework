@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2023 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2024 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -32,7 +32,7 @@ uses
   MVCFramework.RESTClient,
   MVCFramework.JSONRPC.Client,
   System.DateUtils,
-  System.Hash, System.Rtti;
+  System.Hash, System.Rtti, MVCFramework.Commons;
 
 type
 
@@ -237,6 +237,23 @@ type
     [Category('renders,exceptions')]
     procedure TestEMVCException4;
 
+    [Test]
+    [Category('renders,exceptions')]
+    [TestCase('404'+'invalid_accept',               '404,/invalidurl,invalid_accept,' + TMVCMediaType.APPLICATION_JSON)]
+    [TestCase('404'+TMVCMediaType.TEXT_HTML,        '404,/invalidurl,' + TMVCMediaType.TEXT_HTML + ',' + TMVCMediaType.TEXT_HTML)]
+    [TestCase('404'+TMVCMediaType.TEXT_PLAIN,       '404,/invalidurl,' +  TMVCMediaType.TEXT_PLAIN + ',' + TMVCMediaType.TEXT_PLAIN)]
+    [TestCase('404'+TMVCMediaType.APPLICATION_JSON, '404,/invalidurl,' + TMVCMediaType.APPLICATION_JSON + ',' + TMVCMediaType.APPLICATION_JSON)]
+    [TestCase('500'+'invalid_accept',               '500,/exception/emvcexception1,invalid_accept,' + TMVCMediaType.APPLICATION_JSON)]
+    [TestCase('500'+TMVCMediaType.TEXT_HTML,        '500,/exception/emvcexception1,' + TMVCMediaType.TEXT_HTML + ',' + TMVCMediaType.TEXT_HTML)]
+    [TestCase('500'+TMVCMediaType.TEXT_PLAIN,       '500,/exception/emvcexception1,' +  TMVCMediaType.TEXT_PLAIN + ',' + TMVCMediaType.TEXT_PLAIN)]
+    [TestCase('500'+TMVCMediaType.APPLICATION_JSON, '500,/exception/emvcexception1,' + TMVCMediaType.APPLICATION_JSON + ',' + TMVCMediaType.APPLICATION_JSON)]
+
+    procedure TestResponseContentTypes(
+        const ExpectedStatus: Integer;
+        const URL: String;
+        const RequestAccept: String;
+        const ResponseContentType: String);
+
     // test nullables
     [Test]
     procedure TestDeserializeNullablesWithValue;
@@ -248,6 +265,19 @@ type
     procedure TestSerializeAndDeserializeNullables_ISSUE_362;
     [Test]
     procedure TestSerializeAndDeserializeNullables_Passing_Integers_InsteadOf_Floats;
+
+    //test sqids
+    [Test]
+    [TestCase('1', '1,Im1JUf')]
+    [TestCase('2','1234567890,LhXiwKz')]
+    [TestCase('3','9007199254740991,PTP7uQmcmk')]
+    procedure TestSqidSingle(IntValue: UInt64; Sqid: String);
+
+    [Test]
+    procedure TestWrongSqid;
+
+    [Test]
+    procedure TestInvalidConverter;
 
     // test responses objects
     [Test]
@@ -449,7 +479,6 @@ uses
   MVCFramework.Serializer.Defaults,
   JsonDataObjects,
   MVCFramework.Serializer.JsonDataObjects,
-  MVCFramework.Commons,
   System.SyncObjs,
   System.Generics.Collections,
   System.SysUtils,
@@ -1220,6 +1249,8 @@ begin
   try
     lObj1.Names := ['one', 'two', 'three'];
     lObj1.Values := [1, 2, 3];
+    lObj1.Values8 := [4, 5, 6];
+    lObj1.Values64 := [7, 8, 9];
     lObj1.Booleans := [true, false];
     lBody := GetDefaultSerializer.SerializeObject(lObj1);
 
@@ -1618,7 +1649,7 @@ begin
   lResp := RESTClient.Get('/injectable10');
   lJSON := StrToJSONObject(lResp.Content);
   try
-    Assert.areEqual('this is a string', lJSON.S['ParString'], 'wrong string');
+    Assert.areEqual('this is a string', lJSON.S['ParString'], 'wrong string: ' + lJSON.ToJSON());
     Assert.areEqual(1234, lJSON.I['ParInteger'], 'wrong ParInteger');
     Assert.areEqual<Int64>(1234567890, lJSON.L['ParInt64'], 'wrong ParInt64');
     Assert.areEqual('2011-11-17', lJSON.S['ParTDate'], 'wrong ParTDate');
@@ -1758,6 +1789,14 @@ begin
   Assert.areEqual('', res.Content);
 end;
 
+procedure TServerTest.TestInvalidConverter;
+var
+  lRes: IMVCRESTResponse;
+begin
+  lRes := RESTClient.Get('/wrongconverter/1');
+  Assert.areEqual(500, lRes.StatusCode);
+end;
+
 procedure TServerTest.TestIssue406;
 var
   r: IMVCRESTResponse;
@@ -1876,6 +1915,22 @@ var
 begin
   lRes := RESTClient.Get(URLSegment);
   Assert.areEqual(HTTP_STATUS.OK, lRes.StatusCode);
+end;
+
+procedure TServerTest.TestResponseContentTypes(
+  const ExpectedStatus: Integer;
+  const URL: String;
+  const RequestAccept: String;
+  const ResponseContentType: String);
+var
+  res: IMVCRESTResponse;
+begin
+  res := RESTClient
+    .ClearHeaders
+    .Accept(RequestAccept)
+    .Get(URL);
+  Assert.AreEqual<Integer>(ExpectedStatus, res.StatusCode);
+  Assert.StartsWith(ResponseContentType, res.ContentType);
 end;
 
 procedure TServerTest.TestObjectDict;
@@ -2795,9 +2850,22 @@ begin
     lUrl := '..\' + lUrl;
     lRes := RESTClient.Accept(TMVCMediaType.TEXT_HTML).Get('/spa/' + lUrl);
     Assert.areEqual(404, lRes.StatusCode);
-    Assert.Contains(lRes.Content, 'EMVCException', true);
+    Assert.Contains(lRes.Content, '404', true);
     Assert.Contains(lRes.Content, 'Not Found', true);
   end;
+end;
+
+procedure TServerTest.TestSqidSingle(IntValue: UInt64; Sqid: String);
+var
+  lRes: IMVCRESTResponse;
+begin
+  lRes := RESTClient.Get('/sqids/itos/' + IntValue.ToString);
+  Assert.areEqual(200, lRes.StatusCode);
+  Assert.AreEqual(TMVCSqids.IntToSqid(IntValue), lRes.Content.Trim, '(local)');
+  Assert.AreEqual(Sqid, lRes.Content.Trim, '(remote)');
+  lRes := RESTClient.Get('/sqids/stoi/' + Sqid);
+  Assert.areEqual(200, lRes.StatusCode);
+  Assert.AreEqual<Int64>(IntValue, lRes.Content.Trim.ToInt64);
 end;
 
 procedure TServerTest.TestStringDictionary;
@@ -2988,6 +3056,14 @@ var
 begin
   lRes := RESTClient.Post('/stringdictionary', '{"prop1","value1"}');
   Assert.areEqual(HTTP_STATUS.BadRequest, lRes.StatusCode);
+end;
+
+procedure TServerTest.TestWrongSqid;
+var
+  lRes: IMVCRESTResponse;
+begin
+  lRes := RESTClient.Get('/sqids/itos/123456789123456789123456789123456789');
+  Assert.areEqual(400, lRes.StatusCode);
 end;
 
 procedure TServerTest.TestTypedDateTimeTypes;

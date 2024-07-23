@@ -1,13 +1,13 @@
-// ***************************************************************************
+ï»¿// ***************************************************************************
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2023 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2024 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
 // Collaborators on this file:
-// João Antônio Duarte (https://github.com/joaoduarte19)
+// Joï¿½o Antï¿½nio Duarte (https://github.com/joaoduarte19)
 //
 // ***************************************************************************
 //
@@ -99,6 +99,7 @@ type
     fBeforeRequestProc: TBeforeRequestProc;
     fRequestCompletedProc: TRequestCompletedProc;
     fResponseCompletedProc: TResponseCompletedProc;
+    fSendDataProc: TSendDataProc;
     [Weak] fClientCertificate: TStream;
     fClientCertPassword: string;
     fClientCertPath: string;
@@ -109,6 +110,9 @@ type
     procedure DoBeforeRequest(aRequest: IHTTPRequest);
     procedure DoRequestCompleted(aResponse: IHTTPResponse; var aHandled: Boolean);
     procedure DoResponseCompleted(aMVCRESTResponse: IMVCRESTResponse);
+{$IF defined(SYDNEYORBETTER)}
+    procedure DoOnSendDataEvent(const Sender: TObject; AContentLength, AWriteCount: Int64; var AAbort: Boolean);
+{$ENDIF}
     function GetBodyFormData: TMultipartFormData;
     function ObjectIsList(aObject: TObject): Boolean;
     function SerializeObject(aObject: TObject): string;
@@ -184,6 +188,13 @@ type
     /// Executes after the response is processed.
     /// </summary>
     function SetResponseCompletedProc(aResponseCompletedProc: TResponseCompletedProc): IMVCRESTClient;
+
+    /// <summary>
+    /// Executes while sending data
+    /// </summary>
+    {$IF defined(SYDNEYORBETTER)}
+    function SetSendDataProc(aSendDataProc: TSendDataProc): IMVCRESTClient;
+    {$ENDIF}
 
     ///<summary>
     /// Set the client certificate for the request</summary>
@@ -951,6 +962,9 @@ begin
   fHTTPClient.OnValidateServerCertificate := DoValidateServerCertificate;
   fHTTPClient.HandleRedirects := True;
   fHTTPClient.MaxRedirects := TMVCRESTClientConsts.DEFAULT_MAX_REDIRECTS;
+{$IF defined(SYDNEYORBETTER)}
+  fHTTPClient.OnSendData := DoOnSendDataEvent;
+{$ENDIF}
 {$IF defined(TOKYOORBETTER)}
   fHTTPClient.SecureProtocols := CHTTPDefSecureProtocols;
 {$ENDIF}
@@ -959,6 +973,7 @@ begin
   fBeforeRequestProc := nil;
   fRequestCompletedProc := nil;
   fResponseCompletedProc := nil;
+  fSendDataProc := nil;
   fParameters := TList<TMVCRESTParam>.Create;
   fRawBody := TMemoryStream.Create;
   fBodyFormData := nil;
@@ -1511,6 +1526,17 @@ begin
   Result := fRttiContext.GetType(aObject.ClassType).GetMethod('GetEnumerator') <> nil;
 end;
 
+{$IF defined(SYDNEYORBETTER)}
+procedure TMVCRESTClient.DoOnSendDataEvent(const Sender: TObject; AContentLength,
+  AWriteCount: Int64; var AAbort: Boolean);
+begin
+  if Assigned(fSendDataProc) then
+  begin
+    fSendDataProc(AContentLength, AWriteCount, AAbort);
+  end;
+end;
+{$ENDIF}
+
 function TMVCRESTClient.Options: IMVCRESTResponse;
 begin
   Result := ExecuteRequest(TMVCHTTPMethodType.httpOPTIONS);
@@ -1877,6 +1903,14 @@ begin
   Result := Self;
   fResponseCompletedProc := aResponseCompletedProc;
 end;
+
+{$IF Defined(SYDNEYORBETTER)}
+function TMVCRESTClient.SetSendDataProc(
+  aSendDataProc: TSendDataProc): IMVCRESTClient;
+begin
+  fSendDataProc := aSendDataProc;
+end;
+{$ENDIF}
 
 function TMVCRESTClient.SetValidateServerCertificateProc(
   aValidateCertificateProc: TValidateServerCertificateProc): IMVCRESTClient;

@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2023 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2024 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -66,10 +66,10 @@ begin
   lPKInInsert := lPKInInsert and (not(TMVCActiveRecordFieldOption.foReadOnly in TableMap.fPrimaryKeyOptions));
   lSB := TStringBuilder.Create;
   try
-    lSB.Append('INSERT INTO ' + TableMap.fTableName + '(');
+    lSB.Append('INSERT INTO ' + GetTableNameForSQL(TableMap.fTableName) + '(');
     if lPKInInsert then
     begin
-      lSB.Append(TableMap.fPrimaryKeyFieldName + ',');
+      lSB.Append(GetFieldNameForSQL(TableMap.fPrimaryKeyFieldName) + ',');
     end;
 
     {partition}
@@ -81,9 +81,9 @@ begin
 
     for lKeyValue in TableMap.fMap do
     begin
-      if lKeyValue.Value.Writeable then
+      if lKeyValue.Value.Insertable then
       begin
-        lSB.Append(lKeyValue.Value.FieldName + ',');
+        lSB.Append(GetFieldNameForSQL(lKeyValue.Value.FieldName) + ',');
       end;
     end;
 
@@ -91,7 +91,7 @@ begin
     lSB.Append(') values (');
     if lPKInInsert then
     begin
-      lSB.Append(':' + TableMap.fPrimaryKeyFieldName + ',');
+      lSB.Append(':' + GetParamNameForSQL(TableMap.fPrimaryKeyFieldName) + ',');
     end;
 
     {partition}
@@ -106,7 +106,7 @@ begin
       if lKeyValue.Value.IsVersion then
       begin
         lSB.Append(OBJECT_VERSION_STARTING_VALUE + ',');
-      end else if lKeyValue.Value.Writeable then
+      end else if lKeyValue.Value.Insertable then
       begin
         lSB.Append(':' + GetParamNameForSQL(lKeyValue.Value.FieldName) + ',');
       end;

@@ -23,7 +23,7 @@ uses
   FireDAC.DApt,
   FireDAC.Comp.DataSet,
   FireDAC.Phys.FBDef,
-  FireDAC.VCLUI.Wait;
+  FireDAC.VCLUI.Wait, Services;
 
 type
   TdmMain = class(TDataModule)
@@ -34,7 +34,9 @@ type
   private
     { Private declarations }
   public
+    constructor Create; reintroduce;
     function SearchProducts(const SearchText: string): TDataSet;
+
   end;
 
 implementation
@@ -50,6 +52,11 @@ uses
 procedure TdmMain.ConnectionBeforeConnect(Sender: TObject);
 begin
   Connection.Params.Values['Database'] := dotEnv.Env('database.path');
+end;
+
+constructor TdmMain.Create;
+begin
+  inherited Create(nil);
 end;
 
 function TdmMain.SearchProducts(const SearchText: string): TDataSet;

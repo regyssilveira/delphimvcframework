@@ -7,14 +7,12 @@ uses
   System.Generics.Collections, Data.DB, JsonDataObjects, System.Rtti;
 
 type
-  [MVCNameCase(ncCamelCase)]
   TPersonRec = record
     FirstName, LastName: String;
     Age: Integer;
     class function Create: TPersonRec; static;
   end;
 
-  [MVCNameCase(ncCamelCase)]
   TPerson = class
   private
     fAge: Integer;
@@ -34,6 +32,10 @@ type
     function GetSum(const A, B: Integer): Integer;
     [MVCPath('/sumsasfloat/($A)/($B)')]
     function GetSumAsFloat(const A, B: Extended): Extended;
+    [MVCPath('/booleans/($A)/($B)')]
+    function GetOrTruthTable(const A, B: Boolean): Boolean;
+    [MVCPath('/strings/($A)/($B)')]
+    function GetConcatAsString(const A, B: String): String;
 
     { actions returning records }
     [MVCPath('/records/single')]
@@ -46,6 +48,8 @@ type
     function GetSingleObject: TPerson;
     [MVCPath('/objects/multiple')]
     function GetMultipleObjects: TObjectList<TPerson>;
+
+    { actions returning json }
     [MVCPath('/objects/jsonobject')]
     function GetJSONObject: TJSONObject;
     [MVCPath('/objects/jsonarray')]
@@ -63,7 +67,16 @@ type
     [MVCPath('/headers')]
     function GetWithCustomHeaders: TObjectList<TPerson>;
 
-    { using IMVCResponse }
+    { exceptions  }
+    [MVCPath('/exception1')]
+    function GetMVCException: Integer;
+
+    [MVCPath('/exception2')]
+    function GetGeneralException: Integer;
+
+
+
+    { using IMVCResponse and Response Methods}
     [MVCPath('/mvcresponse/message')]
     function GetMVCResponseSimple: IMVCResponse;
     [MVCPath('/mvcresponse/data')]
@@ -78,6 +91,16 @@ type
     function GetMVCResponseWithObjectDictionary: IMVCResponse;
     [MVCPath('/mvcresponse/message/builder/headers')]
     function GetMVCResponseSimpleBuilderWithHeaders: IMVCResponse;
+    [MVCPath('/mvcresponse/message/builder/nobody')]
+    function GetMVCResponseNoBody: IMVCResponse;
+    [MVCPath('/mvcresponse/ok')]
+    function GetOKResponse: IMVCResponse;
+    [MVCPath('/mvcresponse/not_found')]
+    function GetNotFound: IMVCResponse;
+    [MVCPath('/mvcresponse/not_modified')]
+    function GetNotModified: IMVCResponse;
+    [MVCPath('/mvcresponse/accepted')]
+    function GetAccepted: IMVCResponse;
   end;
 
 implementation
@@ -87,16 +110,6 @@ uses
   MainDMU, FireDAC.Comp.Client, MVCFramework.FireDAC.Utils;
 
 { TMyController }
-
-function TMyController.GetJSONArray: TJsonArray;
-begin
-  Result := StrToJSONArray('[1,2,3, {"name":"Daniele","surname":"Teti"}]');
-end;
-
-function TMyController.GetJSONObject: TJSONObject;
-begin
-  Result := StrToJSONObject('{"name":"Daniele","surname":"Teti"}');
-end;
 
 function TMyController.GetSingleDataSet: TDataSet;
 begin
@@ -136,35 +149,23 @@ begin
   end;
 end;
 
-function TMyController.GetMultipleObjects: TObjectList<TPerson>;
+function TMyController.GetMVCException: Integer;
 begin
-  Result := TObjectList<TPerson>.Create;
-
-  Result.Add(TPerson.Create('Daniele', 'Teti', YearsBetween(Date, EncodeDateDay(1979, 1))));
-
-  Result.Add(TPerson.Create('Daniele', 'Teti', Result[0].Age + 10));
-
-  Result.Add(TPerson.Create('Daniele', 'Teti', Result[0].Age + 20));
+  raise EMVCException.Create(HTTP_STATUS.NotFound, 'Resource not found');
 end;
 
-function TMyController.GetMultipleRecords: TArray<TPersonRec>;
+function TMyController.GetMVCResponseNoBody: IMVCResponse;
 begin
-  SetLength(Result, 3);
-  Result[0] := TPersonRec.Create;
-  Result[1] := TPersonRec.Create;
-  Result[2] := TPersonRec.Create;
-
-  Inc(Result[1].Age, 10);
-
-  Inc(Result[2].Age, 20);
+  Result := MVCResponseBuilder
+    .StatusCode(HTTP_STATUS.OK)
+    .Header('header1', 'Hello World')
+    .Header('header2', 'foo bar')
+    .Build;
 end;
 
 function TMyController.GetMVCResponseSimple: IMVCResponse;
 begin
-  Result := MVCResponseBuilder
-    .StatusCode(HTTP_STATUS.OK)
-    .Body('My Message')
-    .Build;
+  Result := OKResponse('My Message');
 end;
 
 function TMyController.GetMVCResponseSimpleBuilderWithHeaders: IMVCResponse;
@@ -179,10 +180,7 @@ end;
 
 function TMyController.GetMVCResponseWithData: IMVCResponse;
 begin
-  Result := MVCResponseBuilder
-    .StatusCode(HTTP_STATUS.OK)
-    .Body(TPerson.Create('Daniele','Teti', 99))
-    .Build;
+  Result := OKResponse(TPerson.Create('Daniele','Teti', 99));
 end;
 
 function TMyController.GetMVCResponseWithDataAndMessage: IMVCResponse;
@@ -218,22 +216,36 @@ end;
 
 function TMyController.GetMVCResponseWithObjectList: IMVCResponse;
 begin
-  Result := MVCResponseBuilder
-    .StatusCode(HTTP_STATUS.OK)
-    .Body(TObjectList<TPerson>.Create([
-      TPerson.Create('Daniele','Teti', 99),
-      TPerson.Create('Peter','Parker', 25),
-      TPerson.Create('Bruce','Banner', 45)
-    ])
-  ).Build;
+  Result := OKResponse(TObjectList<TPerson>.Create([
+              TPerson.Create('Daniele','Teti', 99),
+              TPerson.Create('Peter','Parker', 25),
+              TPerson.Create('Bruce','Banner', 45)
+            ]));
+end;
+
+function TMyController.GetNotFound: IMVCResponse;
+begin
+  Result := NotFoundResponse;
+end;
+
+function TMyController.GetNotModified: IMVCResponse;
+begin
+  Result := NotModifiedResponse;
+end;
+
+function TMyController.GetOKResponse: IMVCResponse;
+begin
+  Result := OKResponse;
+end;
+
+function TMyController.GetOrTruthTable(const A, B: Boolean): Boolean;
+begin
+  Result := A or B;
 end;
 
 function TMyController.GetMVCResponseWithJSON: IMVCResponse;
 begin
-  Result := MVCResponseBuilder
-    .StatusCode(HTTP_STATUS.OK)
-    .Body(StrToJSONObject('{"name":"Daniele","surname":"Teti"}'))
-    .Build;
+  Result := OKResponse(StrToJSONObject('{"name":"Daniele","surname":"Teti"}'));
 end;
 
 function TMyController.GetSingleObject: TPerson;
@@ -241,10 +253,41 @@ begin
   Result := TPerson.Create('Daniele', 'Teti', YearsBetween(Date, EncodeDateDay(1979, 1)));
 end;
 
+function TMyController.GetMultipleObjects: TObjectList<TPerson>;
+begin
+  Result := TObjectList<TPerson>.Create;
+  Result.Add(TPerson.Create('Daniele', 'Teti', YearsBetween(Date, EncodeDateDay(1979, 1))));
+  Result.Add(TPerson.Create('Daniele', 'Teti', Result[0].Age + 10));
+  Result.Add(TPerson.Create('Daniele', 'Teti', Result[0].Age + 20));
+end;
+
+function TMyController.GetJSONArray: TJsonArray;
+begin
+  Result := StrToJSONArray('[1,2,3, {"name":"Daniele","surname":"Teti"}]');
+end;
+
+function TMyController.GetJSONObject: TJSONObject;
+begin
+  Result := StrToJSONObject('{"name":"Daniele","surname":"Teti"}');
+end;
+
 function TMyController.GetSingleRecord: TPersonRec;
 begin
   Result := TPersonRec.Create;
 end;
+
+function TMyController.GetMultipleRecords: TArray<TPersonRec>;
+begin
+  SetLength(Result, 3);
+  Result[0] := TPersonRec.Create;
+  Result[1] := TPersonRec.Create;
+  Result[2] := TPersonRec.Create;
+
+  Inc(Result[1].Age, 10);
+
+  Inc(Result[2].Age, 20);
+end;
+
 
 function TMyController.GetSum(const A, B: Integer): Integer;
 begin
@@ -254,6 +297,21 @@ end;
 function TMyController.GetSumAsFloat(const A, B: Extended): Extended;
 begin
   Result := A + B;
+end;
+
+function TMyController.GetAccepted: IMVCResponse;
+begin
+  Result := AcceptedResponse('https://www.danieleteti.it');
+end;
+
+function TMyController.GetConcatAsString(const A, B: String): String;
+begin
+  Result :=  A + B;
+end;
+
+function TMyController.GetGeneralException: Integer;
+begin
+  raise Exception.Create('This is a general exception');
 end;
 
 function TMyController.GetWithCustomHeaders: TObjectList<TPerson>;

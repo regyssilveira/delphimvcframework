@@ -27,6 +27,8 @@ uses
   FireDAC.Comp.Client,
   MVCFramework.Nullables,
   MVCFramework.ActiveRecord,
+  MVCFramework.Logger,
+
   System.Generics.Collections, System.Diagnostics;
 
 type
@@ -40,7 +42,6 @@ type
     btnMultiThreading: TButton;
     btnRQL: TButton;
     btnReadOnlyFields: TButton;
-    FDConnection1: TFDConnection;
     btnNullTest: TButton;
     btnCRUDNoAutoInc: TButton;
     btnCRUDWithStringPKs: TButton;
@@ -63,6 +64,8 @@ type
     btnIntegersAsBool: TButton;
     btnObjectVersion: TButton;
     btnCustomTable: TButton;
+    btnCRUDWithOptions: TButton;
+    btnTransaction: TButton;
     procedure btnCRUDClick(Sender: TObject);
     procedure btnInheritanceClick(Sender: TObject);
     procedure btnMultiThreadingClick(Sender: TObject);
@@ -96,9 +99,12 @@ type
     procedure btnIntegersAsBoolClick(Sender: TObject);
     procedure btnObjectVersionClick(Sender: TObject);
     procedure btnCustomTableClick(Sender: TObject);
+    procedure btnCRUDWithOptionsClick(Sender: TObject);
+    procedure btnTransactionClick(Sender: TObject);
   private
     procedure Log(const Value: string);
     procedure LoadCustomers(const HowManyCustomers: Integer = 50);
+    procedure ExecutedInTransaction;
   public
     { Public declarations }
   end;
@@ -236,6 +242,7 @@ begin
     lCustomer.CompanyName := 'Google Inc.';
     lCustomer.City := 'Montain View, CA';
     lCustomer.Note := 'Μῆνιν ἄειδε θεὰ Πηληϊάδεω Ἀχιλῆος οὐλομένην 😁';
+    lCustomer.LastContact := Now();
     lCustomer.Insert;
     lID := lCustomer.ID;
     Log('Just inserted Customer ' + lID.ToString);
@@ -248,6 +255,7 @@ begin
     Assert(not lCustomer.Code.HasValue);
     lCustomer.Code.Value := '5678';
     lCustomer.Note := lCustomer.Note + sLineBreak + 'Code changed to 5678 🙂';
+    lCustomer.LastContact.Clear;
     lTestNote := lCustomer.Note;
     lCustomer.Update;
     Log('Just updated Customer ' + lID.ToString);
@@ -259,6 +267,8 @@ begin
   try
     lCustomer.LoadByPK(lID);
     lCustomer.Code.Value := '😉9012🙂';
+    Assert(lCustomer.LastContact.IsNull);
+    lCustomer.LastContact := Now();
     lCustomer.Update;
   finally
     lCustomer.Free;
@@ -269,6 +279,8 @@ begin
     lCustomer.LoadByPK(lID);
     Assert(lCustomer.Code.Value = '😉9012🙂');
     Assert(lCustomer.Note = lTestNote);
+    Assert(lCustomer.LastContact.HasValue);
+    lCustomer.LastContact := Now();
     lCustomer.Update;
   finally
     lCustomer.Free;
@@ -410,6 +422,78 @@ begin
   finally
     lCustWithGUID.Free;
   end;
+end;
+
+procedure TMainForm.btnCRUDWithOptionsClick(Sender: TObject);
+var
+  lCustomer: TCustomerWithOptions;
+  lID: Integer;
+begin
+  Log('** CRUD test with fields options');
+  lCustomer := TCustomerWithOptions.Create;
+  try
+    {
+      'Code' will not be persisted on table because defined as 'foReadOnly'
+    }
+    lCustomer.Code := '1234'; // "Code" will be skipped in insert and in update as well
+    lCustomer.CompanyName := 'Google Inc.'; // "CompanyName" will be skipped in insert
+    lCustomer.City := 'Montain View, CA'; // "City" will be skipped in update
+    lCustomer.Insert;
+    lID := lCustomer.ID;
+    Log('Just inserted Customer ' + lID.ToString + ' with fields options');
+  finally
+    lCustomer.Free;
+  end;
+
+  //let's check that code is empty
+  lCustomer := TMVCActiveRecord.GetByPK<TCustomerWithOptions>(lID);
+  try
+    Assert(lCustomer.Code.IsNull); // it's null
+    Assert(lCustomer.CompanyName.IsEmpty); //empty string
+    Assert(lCustomer.City = 'Montain View, CA'); //inserted
+
+    lCustomer.Code := '1234'; // "Code" will be skipped in insert and in update as well
+    lCustomer.CompanyName := 'Google Inc.'; // "CompanyName" will be saved
+    lCustomer.City := 'Via Roma 10, ITALY'; // "City" will be skipped in update
+    lCustomer.Update;
+  finally
+    lCustomer.Free;
+  end;
+
+  //let's check
+  lCustomer := TMVCActiveRecord.GetByPK<TCustomerWithOptions>(lID);
+  try
+    Assert(lCustomer.Code.IsNull); // it's null
+    Assert(lCustomer.CompanyName = 'Google Inc.'); //correctly updated
+    Assert(lCustomer.City = 'Montain View, CA'); // not updated, mantains old value
+  finally
+    lCustomer.Free;
+  end;
+
+  {
+  //if underlying field is not null, it is loaded as usual
+  TMVCActiveRecord.CurrentConnection.ExecSQL('update customers set code = ''XYZ'' where id = ?', [lID]);
+  lCustomer := TMVCActiveRecord.GetByPK<TCustomerWithReadOnlyFields>(lID);
+  try
+    Assert('XYZ' = lCustomer.Code);
+    lCustomer.CompanyName := lCustomer.CompanyName + ' changed!';
+    lCustomer.Code := 'this code will not be saved';
+    lCustomer.Update; //do not save field "code"
+    Log('Just updated Customer ' + lID.ToString);
+  finally
+    lCustomer.Free;
+  end;
+
+  //but being foReadOnly is not updated
+  lCustomer := TMVCActiveRecord.GetByPK<TCustomerWithReadOnlyFields>(lID);
+  try
+    Assert('XYZ' = lCustomer.Code);
+    lCustomer.Delete;
+    Log('Just deleted Customer ' + lID.ToString + ' with a R/O field');
+  finally
+    lCustomer.Free;
+  end;
+  }
 end;
 
 procedure TMainForm.btnCRUDWithStringPKsClick(Sender: TObject);
@@ -754,54 +838,50 @@ procedure TMainForm.btnMultiThreadingClick(Sender: TObject);
 var
   lTasks: TArray<ITask>;
   lProc: TProc;
-  lConnParams: string;
 begin
   Log('** Multithreading test');
   TMVCActiveRecord.DeleteRQL(TCustomer,
     'in(City,["Rome","New York","London","Melbourne","Berlin"])');
 
-  lConnParams := FDConnection1.Params.Text;
   lProc := procedure
-    var
-      lConn: TFDConnection;
-      lCustomer: TCustomer;
-      I: Integer;
-    begin
-      lConn := TFDConnection.Create(nil);
-      try
-        lConn.ConnectionDefName := CON_DEF_NAME;
-        ActiveRecordConnectionsRegistry.AddDefaultConnection(lConn, True);
-        lConn.Params.Text := lConnParams;
-        lConn.Open;
-        for I := 1 to 30 do
-        begin
-          lCustomer := TCustomer.Create;
-          try
-            lCustomer.Code := Format('%5.5d', [TThread.CurrentThread.ThreadID, I]);
-            lCustomer.City := Cities[Random(high(Cities) + 1)];
-            lCustomer.CompanyName :=
-              Format('%s %s %s', [lCustomer.City, Stuff[Random(high(Stuff) + 1)],
-              CompanySuffix[Random(high(CompanySuffix) + 1)]]);
-            lCustomer.Note := lCustomer.CompanyName + ' is from ' + lCustomer.City;
-            lCustomer.Insert;
-          finally
-            lCustomer.Free;
-          end;
-        end;
-      finally
-        ActiveRecordConnectionsRegistry.RemoveDefaultConnection;
-      end;
-    end;
+           var
+             lCustomer: TCustomer;
+             I: Integer;
+           begin
+             ActiveRecordConnectionsRegistry.AddDefaultConnection(CON_DEF_NAME);
+             try
+               lCustomer := TCustomer.Create;
+               try
+                 for I := 1 to 50 do
+                 begin
+                   lCustomer.ID.Clear;
+                   lCustomer.Code := Format('%5.5d', [TThread.CurrentThread.ThreadID, I]);
+                   lCustomer.City := Cities[Random(high(Cities) + 1)];
+                   lCustomer.CompanyName :=
+                     Format('%s %s %s', [lCustomer.City, Stuff[Random(high(Stuff) + 1)],
+                     CompanySuffix[Random(high(CompanySuffix) + 1)]]);
+                   lCustomer.Note := lCustomer.CompanyName + ' is from ' + lCustomer.City;
+                   lCustomer.Insert;
+                 end;
+               finally
+                 lCustomer.Free;
+               end;
+             finally
+               ActiveRecordConnectionsRegistry.RemoveDefaultConnection;
+             end;
+           end;
 
-  lTasks := [TTask.Run(lProc), TTask.Run(lProc), TTask.Run(lProc), TTask.Run(lProc),
+  lTasks := [
     TTask.Run(lProc), TTask.Run(lProc), TTask.Run(lProc), TTask.Run(lProc), TTask.Run(lProc),
     TTask.Run(lProc), TTask.Run(lProc), TTask.Run(lProc), TTask.Run(lProc), TTask.Run(lProc),
     TTask.Run(lProc), TTask.Run(lProc), TTask.Run(lProc), TTask.Run(lProc), TTask.Run(lProc),
-    TTask.Run(lProc)];
+    TTask.Run(lProc), TTask.Run(lProc), TTask.Run(lProc), TTask.Run(lProc), TTask.Run(lProc),
+    TTask.Run(lProc), TTask.Run(lProc), TTask.Run(lProc), TTask.Run(lProc), TTask.Run(lProc)
+  ];
   TTask.WaitForAll(lTasks);
 
   ShowMessage('Just inserted ' + TMVCActiveRecord.Count(TCustomer,
-    'in(City,["Rome","New York","London","Melbourne","Berlin"])').ToString + ' records');
+    'in(City,["Rome","New York","London","Melbourne","Berlin"])').ToString + ' records by ' + Length(lTasks).ToString + ' threads');
 end;
 
 procedure TMainForm.btnNamedQueryClick(Sender: TObject);
@@ -1304,7 +1384,7 @@ begin
     Log(lCustomer.CompanyName);
     for lOrder in lCustomer.Orders do
     begin
-      Log(Format('  %5.5d - %s - %m', [lOrder.ID, datetostr(lOrder.OrderDate), lOrder.Total]));
+      Log(Format('  %5.5d - %s - %m', [lOrder.ID.Value, datetostr(lOrder.OrderDate), lOrder.Total]));
       lOrderRows := TMVCActiveRecord.Where<TOrderDetail>('id_order = ?', [lOrder.ID]);
       try
         for lOrderRow in lOrderRows do
@@ -1816,6 +1896,81 @@ begin
   end;
 end;
 
+procedure TMainForm.btnTransactionClick(Sender: TObject);
+begin
+  Log('# TransactionContext');
+
+  // Test 0
+  ExecutedInTransaction;
+
+  // Test 1
+//  try
+//    begin var Ctx := TMVCActiveRecord.UseTransactionContext;
+//      TMVCActiveRecord.GetByPK<TCustomer>(-1); // will raise EMVCActiveRecordNotFound
+//    end;
+//  except
+//    on E: Exception do
+//    begin
+//      Log(Format('#1 - TransactionContext caught %s (automatic rollback)', [E.ClassName]));
+//    end;
+//  end;
+
+
+  // Test 2
+//  try
+//    begin var Ctx := TMVCActiveRecord.UseTransactionContext;
+//      var S := Ctx; // will raise EMVCActiveRecordTransactionContext
+//    end;
+//  except
+//    on E: Exception do
+//    begin
+//      Log(Format('#2 - TransactionContext caught %s (automatic rollback)', [E.ClassName]));
+//    end;
+//  end;
+
+
+  // Test 3
+  begin var Ctx := TMVCActiveRecord.UseTransactionContext;
+
+    var lCustID: NullableInt64 := nil;
+
+    var lCustomer := TCustomer.Create;
+    try
+      lCustomer.CompanyName := 'Transaction Inc.';
+      lCustomer.LastContact := Now();
+      lCustomer.Store;
+      var lOrder := TOrder.Create;
+      try
+        lOrder.CustomerID := lCustomer.ID; // << link
+        lOrder.OrderDate := Date();
+        lOrder.Store;
+
+        var lOrderItem := TOrderDetail.Create;
+        try
+          lOrderItem.OrderID := lOrder.ID;  // << link
+          var lAllArticles := TMVCActiveRecord.All<TArticle>;
+          try
+            lOrderItem.ArticleID := lAllArticles.First.ID.Value;  // << link
+          finally
+            lAllArticles.Free;
+          end;
+          lOrderItem.Price := 10;
+          lOrderItem.Quantity := 2;
+          lOrderItem.Store;
+        finally
+          lOrderItem.Free;
+        end;
+      finally
+        lOrder.Free;
+      end;
+    finally
+      lCustomer.Free;
+    end;
+    Log('#3 - TransactionContext automatically committed changes (because no exceptions have been raised within the TransactionContext)');
+  end;
+
+end;
+
 procedure TMainForm.btnReadOnlyFieldsClick(Sender: TObject);
 var
   lCustomer: TCustomerWithReadOnlyFields;
@@ -2046,6 +2201,20 @@ begin
   end;
 end;
 
+procedure TMainForm.ExecutedInTransaction;
+begin
+  var tx := TMVCActiveRecord.UseTransactionContext;
+  var lCustomer := TCustomer.Create;
+  try
+    lCustomer.CompanyName := 'Transaction Inc.';
+    lCustomer.LastContact := Now();
+    lCustomer.Insert;
+  finally
+    lCustomer.Free;
+  end;
+  Log('#4 - TransactionContext automatically committed changes (because no exceptions have been raised within the TransactionContext)');
+end;
+
 procedure TMainForm.btnObjectVersionClick(Sender: TObject);
 begin
   var lID: NullableInt64;
@@ -2063,13 +2232,33 @@ begin
     lCust.Free;
   end;
 
-
   lCust := TMVCActiveRecord.GetByPK<TCustomerWithVersion>(lID);
   try
     lCust.CompanyName := 'Alphabet Inc.';
     lCust.Store;
   finally
     lCust.Free;
+  end;
+
+  // Let's load 2 instances
+  var lCust1 := TMVCActiveRecord.GetByPK<TCustomerWithVersion>(lID);
+  try
+    var lCust2 := TMVCActiveRecord.GetByPK<TCustomerWithVersion>(lID);
+    try
+      //User1
+      lCust1.CompanyName := 'MyCompany';
+      lCust1.Store; //save the first version
+      //User1 - end
+
+      //User2
+      lCust2.Rating := 4;
+      lCust2.Store; //save another version starting from an older version - exception
+      //User2 - end
+    finally
+      lCust2.Free;
+    end;
+  finally
+    lCust1.Free;
   end;
 end;
 
@@ -2143,7 +2332,7 @@ end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
-  ActiveRecordConnectionsRegistry.RemoveDefaultConnection(False);
+  ActiveRecordConnectionsRegistry.RemoveDefaultConnection();
 end;
 
 procedure TMainForm.FormShow(Sender: TObject);
@@ -2188,11 +2377,7 @@ begin
     raise Exception.Create('Unknown RDBMS');
   end;
 
-  FDConnection1.Params.Clear;
-  FDConnection1.ConnectionDefName := FDConnectionConfigU.CON_DEF_NAME;
-  FDConnection1.Connected := True;
-
-  ActiveRecordConnectionsRegistry.AddDefaultConnection(FDConnection1);
+  ActiveRecordConnectionsRegistry.AddDefaultConnection(FDConnectionConfigU.CON_DEF_NAME);
   Caption := Caption + ' (Curr Backend: ' + ActiveRecordConnectionsRegistry.GetCurrentBackend + ')';
 {$IFDEF USE_SEQUENCES}
   Caption := Caption + ' USE_SEQUENCES';
@@ -2202,6 +2387,8 @@ begin
   btnWithSpaces.Enabled := (ActiveRecordConnectionsRegistry.GetCurrentBackend = 'postgresql') or
     (ActiveRecordConnectionsRegistry.GetCurrentBackend = 'firebird') or
     (ActiveRecordConnectionsRegistry.GetCurrentBackend = 'interbase') or
+    (ActiveRecordConnectionsRegistry.GetCurrentBackend = 'mysql') or
+    (ActiveRecordConnectionsRegistry.GetCurrentBackend = 'mariadb') or
     (ActiveRecordConnectionsRegistry.GetCurrentBackend = 'sqlite');
 
   btnJSON_XML_Types.Enabled := ActiveRecordConnectionsRegistry.GetCurrentBackend = 'postgresql';

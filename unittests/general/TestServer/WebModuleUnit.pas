@@ -2,7 +2,7 @@
 //
 // Delphi MVC Framework
 //
-// Copyright (c) 2010-2023 Daniele Teti and the DMVCFramework Team
+// Copyright (c) 2010-2024 Daniele Teti and the DMVCFramework Team
 //
 // https://github.com/danieleteti/delphimvcframework
 //
@@ -81,7 +81,7 @@ begin
       Config[TMVCConfigKey.PathPrefix] := '';
       Config[TMVCConfigKey.ViewPath] := TPath.Combine(AppPath, '..\templates');
       Config[TMVCConfigKey.DefaultViewFileExtension] := 'html';
-    end, nil);
+    end);
   MVCEngine
     .AddController(TTestServerController)
     .AddController(TTestPrivateServerController)
@@ -93,11 +93,7 @@ begin
     .AddController(TTestActionResultController)
     .AddController(TTestJSONRPCController, '/jsonrpc')
     .AddController(TTestJSONRPCControllerWithGet, '/jsonrpcwithget')
-    .AddController(TMVCActiveRecordController,
-        function: TMVCController
-        begin
-          Result := TMVCActiveRecordController.Create(CON_DEF_NAME);
-        end, '/api/entities')
+    .AddController(TMVCActiveRecordController, '/api/entities')
     .PublishObject(
     function: TObject
     begin
@@ -137,7 +133,7 @@ begin
     .AddMiddleware(TMVCCompressionMiddleware.Create);
 {$IFDEF MSWINDOWS}
   MVCEngine.SetViewEngine(TMVCMustacheViewEngine);
-  RegisterOptionalCustomTypesSerializers(MVCEngine.Serializers[TMVCMediaType.APPLICATION_JSON]);
+  RegisterOptionalCustomTypesSerializers(MVCEngine.Serializer(TMVCMediaType.APPLICATION_JSON));
 {$ENDIF}
 end;
 
